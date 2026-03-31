@@ -10,13 +10,12 @@ import BlogIdeas from "./blog/BlogIdeas";
 
 export default function HomePage() {
   const [user, setUser] = useState<{ name?: string; role?: string; email?: string } | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("jenanflo_user");
     if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {}
+      try { setUser(JSON.parse(stored)); } catch {}
     }
   }, []);
 
@@ -25,29 +24,53 @@ export default function HomePage() {
     setUser(null);
   };
 
+  const navLinks = [
+    { href: "/flowers", label: "🌸 أزهارك" },
+    { href: "/gifts", label: "✨ هداياك" },
+    { href: "/men", label: "🎩 أناقتك" },
+    { href: "/women", label: "🦋 أنوثتك" },
+    { href: "/handmade", label: "🎨 فن الإبداع" },
+    { href: "/create-gift", label: "🎁 اصنع هديتك" },
+    { href: "/track", label: "📦 تتبع طلبك" },
+  ];
+
   return (
-    <main className="min-h-screen flex flex-col items-center p-6" style={{ background: "linear-gradient(180deg, #1E2A2A 0%, #2D3436 50%, #1E2A2A 100%)" }}>
+    <main className="min-h-screen flex flex-col items-center px-4 py-4 md:p-6" style={{ background: "linear-gradient(180deg, #1E2A2A 0%, #2D3436 50%, #1E2A2A 100%)" }}>
       {/* شريط المدير */}
       {user?.role === "admin" && (
-        <div className="fixed top-0 left-0 right-0 z-50 py-2 px-4 flex justify-between items-center" style={{ background: "linear-gradient(90deg, #C9A96E, #D4AF37)", color: "#1E2A2A" }}>
-          <span className="font-bold">👑 مرحباً {user.name || "مدير المتجر"}</span>
-          <div className="flex gap-4 items-center">
-            <Link href="/admin" className="font-bold hover:underline">🎛️ لوحة التحكم</Link>
-            <button onClick={handleLogout} className="font-medium hover:underline">تسجيل خروج</button>
+        <div className="fixed top-0 left-0 right-0 z-50 py-2 px-4 flex justify-between items-center text-sm" style={{ background: "linear-gradient(90deg, #C9A96E, #D4AF37)", color: "#1E2A2A" }}>
+          <span className="font-bold truncate">👑 {user.name || "المدير"}</span>
+          <div className="flex gap-3 items-center">
+            <Link href="/admin" className="font-bold hover:underline whitespace-nowrap">🎛️ التحكم</Link>
+            <button onClick={handleLogout} className="font-medium hover:underline whitespace-nowrap">خروج</button>
           </div>
         </div>
       )}
-      
-      <header className={`w-full flex flex-col md:flex-row justify-between items-center py-4 mb-8 gap-4 ${user?.role === "admin" ? "mt-10" : ""}`} style={{ borderBottom: "1px solid rgba(74, 155, 160, 0.3)" }}>
+
+      <header className={`w-full flex justify-between items-center py-4 mb-6 ${user?.role === "admin" ? "mt-10" : ""}`} style={{ borderBottom: "1px solid rgba(74, 155, 160, 0.3)" }}>
+        {/* الشعار */}
         <JenanFloLogoFull />
-        <nav className="flex gap-6 text-lg font-medium items-center nav-links">
-          <Link href="/flowers" className="nav-link transition">أزهارك</Link>
-          <Link href="/gifts" className="nav-link transition">هداياك</Link>
-          <Link href="/men" className="nav-link transition">أناقتك</Link>
-          <Link href="/women" className="nav-link transition">أنوثتك</Link>
-          <Link href="/handmade" className="nav-link transition">فن الإبداع</Link>
-          <Link href="/create-gift" className="nav-link transition">اصنع هديتك</Link>
-          <Link href="/track" className="nav-link transition">تتبع طلبك</Link>
+
+        {/* أيقونات الجوال (سلة + هامبرغر) */}
+        <div className="flex items-center gap-3 md:hidden">
+          <CartIcon />
+          <button
+            onClick={() => setMobileOpen(v => !v)}
+            aria-label="القائمة"
+            className="flex flex-col justify-center gap-[5px] w-10 h-10 rounded-xl p-2 transition"
+            style={{ background: "rgba(74,155,160,0.15)", border: "1px solid rgba(74,155,160,0.3)" }}
+          >
+            <span className={`block h-0.5 rounded transition-all duration-300 ${mobileOpen ? "rotate-45 translate-y-[7px]" : ""}`} style={{ background: "#C9A96E" }} />
+            <span className={`block h-0.5 rounded transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`} style={{ background: "#C9A96E" }} />
+            <span className={`block h-0.5 rounded transition-all duration-300 ${mobileOpen ? "-rotate-45 -translate-y-[7px]" : ""}`} style={{ background: "#C9A96E" }} />
+          </button>
+        </div>
+
+        {/* قائمة الديسكتوب */}
+        <nav className="hidden md:flex gap-5 text-base font-medium items-center">
+          {navLinks.map(l => (
+            <Link key={l.href} href={l.href} className="nav-link transition hover:text-teal-400">{l.label}</Link>
+          ))}
           {!user
             ? <Link href="/auth/login" className="nav-link transition">دخول</Link>
             : <Link href="/account" className="nav-link transition font-bold" style={{ color: "#C9A96E" }}>👤 حسابي</Link>
@@ -55,6 +78,56 @@ export default function HomePage() {
           <CartIcon />
         </nav>
       </header>
+
+      {/* قائمة الجوال المنسدلة */}
+      {mobileOpen && (
+        <nav
+          className="md:hidden w-full mb-4 rounded-2xl overflow-hidden"
+          style={{ background: "rgba(30,42,42,0.97)", border: "1px solid rgba(74,155,160,0.25)" }}
+        >
+          <div className="flex flex-col py-2">
+            {navLinks.map(l => (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 px-5 py-3 text-base font-medium transition hover:bg-white/5 active:bg-white/10"
+                style={{ color: "#C9A96E", borderBottom: "1px solid rgba(74,155,160,0.1)" }}
+              >
+                {l.label}
+              </Link>
+            ))}
+            {!user ? (
+              <Link
+                href="/auth/login"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 px-5 py-3 text-base font-medium transition hover:bg-white/5"
+                style={{ color: "#4A9BA0" }}
+              >
+                🔑 دخول / تسجيل
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/account"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 px-5 py-3 text-base font-medium transition hover:bg-white/5"
+                  style={{ color: "#4A9BA0", borderBottom: "1px solid rgba(74,155,160,0.1)" }}
+                >
+                  👤 حسابي
+                </Link>
+                <button
+                  onClick={() => { handleLogout(); setMobileOpen(false); }}
+                  className="flex items-center gap-3 px-5 py-3 text-base font-medium transition hover:bg-white/5 w-full text-right"
+                  style={{ color: "#EF4444" }}
+                >
+                  🚪 تسجيل خروج
+                </button>
+              </>
+            )}
+          </div>
+        </nav>
+      )}
       <section className="text-center max-w-2xl">
         <h1 className="text-4xl md:text-5xl font-extrabold mb-4 main-title">أهلاً بكم في جنان فلو</h1>
         <p className="text-lg md:text-xl mb-8" style={{ color: "#8B9A9A" }}>

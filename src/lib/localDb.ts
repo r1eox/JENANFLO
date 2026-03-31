@@ -10,6 +10,12 @@ const DATA_DIR = IS_VERCEL
 // مجلد البيانات الأصلية (للقراءة فقط عند الحاجة)
 const STATIC_DATA_DIR = path.join(process.cwd(), 'data');
 
+// كاش عالمي (global) — يبقى حياً طوال عمر العملية (warm instance)
+// يمنع رجوع البيانات المحذوفة بعد الحذف خلال نفس الجلسة
+const g = global as typeof globalThis & { _jfCache?: Map<string, unknown[]> };
+if (!g._jfCache) g._jfCache = new Map<string, unknown[]>();
+const CACHE = g._jfCache;
+
 // التأكد من وجود مجلد البيانات
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -17,8 +23,11 @@ function ensureDataDir() {
   }
 }
 
-// قراءة ملف JSON
+// قراءة ملف JSON (مع global cache)
 function readJsonFile<T>(filename: string, defaultValue: T): T {
+  // 1. تحقق من الكاش أولاً
+  if (CACHE.has(filename)) return CACHE.get(filename) as T;
+
   ensureDataDir();
   const filepath = path.join(DATA_DIR, filename);
 
@@ -30,7 +39,9 @@ function readJsonFile<T>(filename: string, defaultValue: T): T {
         try {
           fs.copyFileSync(staticPath, filepath);
           const data = fs.readFileSync(filepath, 'utf-8');
-          return JSON.parse(data);
+          const parsed = JSON.parse(data);
+          CACHE.set(filename, parsed);
+          return parsed;
         } catch {}
       }
     }
@@ -40,17 +51,24 @@ function readJsonFile<T>(filename: string, defaultValue: T): T {
 
   try {
     const data = fs.readFileSync(filepath, 'utf-8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    CACHE.set(filename, parsed);
+    return parsed;
   } catch {
     return defaultValue;
   }
 }
 
-// كتابة ملف JSON
+// كتابة ملف JSON (مع global cache)
 function writeJsonFile<T>(filename: string, data: T): void {
-  ensureDataDir();
-  const filepath = path.join(DATA_DIR, filename);
-  fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+  // تحديث الكاش أولاً
+  CACHE.set(filename, data as unknown[]);
+  // ثم الكتابة للملف كنسخة احتياطية
+  try {
+    ensureDataDir();
+    const filepath = path.join(DATA_DIR, filename);
+    fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+  } catch { /* /tmp قد ٚلا يكون متاحاً دائماً */ }
 }
 
 // ========================
