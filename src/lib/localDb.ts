@@ -1,8 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 
-// مسار ملفات البيانات
-const DATA_DIR = path.join(process.cwd(), 'data');
+// على Vercel نستخدم /tmp لأن نظام الملفات read-only
+const IS_VERCEL = !!(process.env.VERCEL || process.env.VERCEL_ENV);
+const DATA_DIR = IS_VERCEL
+  ? '/tmp/jenanflo-data'
+  : path.join(process.cwd(), 'data');
+
+// مجلد البيانات الأصلية (للقراءة فقط عند الحاجة)
+const STATIC_DATA_DIR = path.join(process.cwd(), 'data');
 
 // التأكد من وجود مجلد البيانات
 function ensureDataDir() {
@@ -15,12 +21,23 @@ function ensureDataDir() {
 function readJsonFile<T>(filename: string, defaultValue: T): T {
   ensureDataDir();
   const filepath = path.join(DATA_DIR, filename);
-  
+
   if (!fs.existsSync(filepath)) {
+    // على Vercel: حاول نسخ الملف من data/ الأصلية
+    if (IS_VERCEL) {
+      const staticPath = path.join(STATIC_DATA_DIR, filename);
+      if (fs.existsSync(staticPath)) {
+        try {
+          fs.copyFileSync(staticPath, filepath);
+          const data = fs.readFileSync(filepath, 'utf-8');
+          return JSON.parse(data);
+        } catch {}
+      }
+    }
     writeJsonFile(filename, defaultValue);
     return defaultValue;
   }
-  
+
   try {
     const data = fs.readFileSync(filepath, 'utf-8');
     return JSON.parse(data);
