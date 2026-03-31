@@ -1,0 +1,230 @@
+[
+  {
+    "customer": {
+      "name": "نايف",
+      "phone": "05666666666"
+    },
+    "items": [
+      {
+        "productId": "bouquet1",
+        "name": "سيمفونية الربيع",
+        "price": 120,
+        "quantity": 2,
+        "giftMessage": ""
+      }
+    ],
+    "subtotal": 240,
+    "tax": 0,
+    "deliveryFee": 25,
+    "total": 265,
+    "status": "جديد",
+    "paymentMethod": "cod",
+    "paymentStatus": "معلق",
+    "_id": "order1772489281063",
+    "orderNumber": "JF-000001",
+    "createdAt": "2026-03-02T22:08:01.063Z"
+  },
+  {
+    "customer": {
+      "name": "يبال",
+      "phone": "045555455454"
+    },
+    "items": [
+      {
+        "productId": "bouquet1",
+        "name": "سيمفونية الربيع",
+        "price": 120,
+        "quantity": 1,
+        "giftMessage": ""
+      },
+      {
+        "productId": "giftbox1",
+        "name": "صندوق الأمنيات",
+        "price": 250,
+        "quantity": 1,
+        "giftMessage": ""
+      },
+      {
+        "productId": "men1",
+        "name": "رقصة التوليب",
+        "price": 140,
+        "quantity": 1,
+        "giftMessage": ""
+      }
+    ],
+    "subtotal": 510,
+    "tax": 0,
+    "deliveryFee": 25,
+    "total": 632,
+    "status": "جديد",
+    "paymentMethod": "cod",
+    "paymentStatus": "معلق",
+    "_id": "order1772623129875",
+    "orderNumber": "JF-000002",
+    "createdAt": "2026-03-04T11:18:49.875Z"
+  },
+  {
+    "customer": {
+      "name": "نايف",
+      "phone": "00201287299484"
+    },
+    "items": [
+      {
+        "productId": "p1772616786447",
+        "name": "اترغ",
+        "price": 8,
+        "quantity": 1
+      },
+      {
+        "productId": "roses1",
+        "name": "عشق الورد الأحمر",
+        "price": 200,
+        "quantity": 1,
+        "giftMessage": ""
+      },
+      {
+        "productId": "bouquet1",
+        "name": "سيمفونية الربيع",
+        "price": 120,
+        "quantity": 1,
+        "giftMessage": ""
+      }
+    ],
+    "extras": [
+      {
+        "id": "card",
+        "name": "بطاقة معايدة فاخرة",
+        "price": 15,
+        "emoji": "💌"
+      },
+      {
+        "id": "chocolate",
+        "name": "شوكولاتة فاخرة",
+        "price": 45,
+        "emoji": "🍫"
+      },
+      {
+        "id": "wrap",
+        "name": "تغليف فاخر إضافي",
+        "price": 25,
+        "emoji": "🎁"
+      },
+      {
+        "id": "balloon",
+        "name": "بالونات هيليوم",
+        "price": 35,
+        "emoji": "🎈"
+      },
+      {
+        "id": "teddy",
+        "name": "دبدوب قطيفة",
+        "price": 55,
+        "emoji": "🧸"
+      },
+      {
+        "id": "perfume",
+        "name": "عطر صغير",
+        "price": 75,
+        "emoji": "🌸"
+      }
+    ],
+    "extrasTotal": 250,
+    "discountCode": "سلام",
+    "discountAmount": 98,
+    "subtotal": 328,
+    "tax": 0,
+    "deliveryFee": 25,
+    "total": 505,
+    "status": "تم التسليم",
+    "paymentMethod": "cod",
+    "paymentStatus": "معلق",
+    "_id": "order1772623695640",
+    "orderNumber": "JF-000003",
+    "createdAt": "2026-03-04T11:28:15.640Z"
+  },
+  {
+    "customer": {
+      "name": "7867886",
+      "phone": "58656885678"
+    },
+    "items": [
+      {
+        "productId": "p1772619876023",
+        "name": "هاهخ",
+        "price": 89,
+        "quantity": 1
+      }
+    ],
+    "extras": [],
+    "extrasTotal": 0,
+    "discountCode": "سلام",
+    "discountAmount": 27,
+    "subtotal": 89,
+    "tax": 0,
+    "deliveryFee": 25,
+    "total": 87,
+    "status": "جديد",
+    "paymentMethod": "cod",
+    "paymentStatus": "معلق",
+    "_id": "order1772626707319",
+    "orderNumber": "JF-000004",
+    "createdAt": "2026-03-04T12:18:27.319Z"
+  },
+  {
+    "customer": {
+      "name": "645645",
+      "phone": "0555555555"
+    },
+    "items": [
+      {
+        "productId": "giftbox1",
+        "name": "صندوق الأمنيات",
+        "price": 250,
+        "quantity": 1,
+        "giftMessage": ""
+      }
+    ],
+    "extras": [],
+    "extrasTotal": 0,
+    "discountCode": null,
+    "discountAmount": 0,
+    "subtotal": 250,
+    "tax": 0,
+    "deliveryFee": 25,
+    "total": 275,
+    "status": "تم التسليم",
+    "paymentMethod": "cod",
+    "paymentStatus": "معلق",
+    "_id": "order1772630039292",
+    "orderNumber": "JF-000005",
+    "createdAt": "2026-03-04T13:13:59.292Z"
+  },
+  {
+    "customer": {
+      "name": "نايف",
+      "phone": "0555555555"
+    },
+    "items": [
+      {
+        "productId": "p1772619876023",
+        "name": "هاهخ",
+        "price": 89,
+        "quantity": 1
+      }
+    ],
+    "extras": [],
+    "extrasTotal": 0,
+    "discountCode": "سلام",
+    "discountAmount": 27,
+    "subtotal": 89,
+    "tax": 0,
+    "deliveryFee": 25,
+    "total": 87,
+    "status": "جديد",
+    "paymentMethod": "cod",
+    "paymentStatus": "معلق",
+    "_id": "order1772712178241",
+    "orderNumber": "JF-000006",
+    "createdAt": "2026-03-05T12:02:58.241Z"
+  }
+]

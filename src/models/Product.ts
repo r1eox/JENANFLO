@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+﻿import mongoose, { Schema } from "mongoose";
 
 const ProductSchema = new Schema({
   name: { type: String, required: true },
@@ -17,7 +17,7 @@ const ProductSchema = new Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-ProductSchema.pre('save', function(next) {
+ProductSchema.pre('save', function(this: any, next: any) {
   this.updatedAt = new Date();
   next();
 });

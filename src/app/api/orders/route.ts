@@ -1,112 +1,127 @@
-import { dbConnect } from "@/lib/mongodb";
-import { mockOrders } from "@/lib/mockData";
-import Order from "@/models/Order";
+import { 
+  getOrders, 
+  getOrderByNumber, 
+  addOrder, 
+  updateOrder,
+  getCustomerByPhone,
+  addCustomer,
+  updateCustomer
+} from "@/lib/localDb";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
-  const db = await dbConnect();
   const { searchParams } = new URL(req.url);
   const orderNumber = searchParams.get('orderNumber');
+  const status = searchParams.get('status');
   
-  // إذا لم يكن MongoDB متاحاً، استخدم البيانات التجريبية
-  if (!db) {
-    const status = searchParams.get('status');
-    let orders = [...mockOrders];
-    
-    // البحث برقم الطلب
-    if (orderNumber) {
-      const found = orders.find(o => o.orderNumber.toLowerCase() === orderNumber.toLowerCase());
-      return NextResponse.json(found || null);
-    }
-    
-    if (status) orders = orders.filter(o => o.status === status);
+  // البحث برقم الطلب
+  if (orderNumber) {
+    const order = getOrderByNumber(orderNumber);
+    return NextResponse.json(order || null);
+  }
+
+  let orders = getOrders();
+
+  // فلتر بالجوال (للعميل المسجل)
+  const phone = searchParams.get('phone');
+  if (phone) {
+    const normalized = phone.replace(/^\+/, '').replace(/^0/, '966');
+    orders = orders.filter(o => {
+      const op = (o.customer?.phone || '').replace(/^\+/, '').replace(/^0/, '966');
+      return op === normalized;
+    });
+    orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return NextResponse.json(orders);
   }
   
-  // البحث برقم الطلب في MongoDB
-  if (orderNumber) {
-    const order = await Order.findOne({ orderNumber: { $regex: new RegExp(orderNumber, 'i') } });
-    return NextResponse.json(order);
+  if (status && status !== 'الكل') {
+    orders = orders.filter(o => o.status === status);
   }
   
-  const status = searchParams.get('status');
-  const limit = searchParams.get('limit');
-  const customerId = searchParams.get('customerId');
+  // ترتيب من الأحدث للأقدم
+  orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   
-  const query: any = {};
-  if (status && status !== 'الكل') query.status = status;
-  if (customerId) query['customer.phone'] = customerId;
-  
-  let ordersQuery = Order.find(query).sort({ createdAt: -1 });
-  if (limit) ordersQuery = ordersQuery.limit(parseInt(limit));
-  
-  const orders = await ordersQuery;
   return NextResponse.json(orders);
 }
 
 export async function POST(req: Request) {
-  const db = await dbConnect();
-  const data = await req.json();
-  
-  // إذا لم يكن MongoDB متاحاً، أرجع نجاح وهمي
-  if (!db) {
-    const orderNumber = `JF-${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`;
+  try {
+    const data = await req.json();
+    
+    const order = addOrder({
+      customer: data.customer,
+      items: data.items,
+      extras: data.extras || [],
+      extrasTotal: data.extrasTotal || 0,
+      discountCode: data.discountCode || null,
+      discountAmount: data.discountAmount || 0,
+      subtotal: data.subtotal || data.total,
+      tax: data.tax || 0,
+      deliveryFee: data.deliveryFee || 0,
+      total: data.total,
+      status: "جديد",
+      paymentMethod: data.paymentMethod || "نقدي",
+      paymentStatus: data.paymentStatus || "معلق",
+      giftMessage: data.giftMessage,
+      deliveryDate: data.deliveryDate,
+      deliveryTime: data.deliveryTime,
+      notes: data.notes
+    });
+
+    // إضافة أو تحديث بيانات العميل تلقائياً
+    if (data.customer?.phone) {
+      const existing = getCustomerByPhone(data.customer.phone);
+      if (existing) {
+        updateCustomer(existing._id, {
+          totalOrders: (existing.totalOrders || 0) + 1,
+          totalSpent: (existing.totalSpent || 0) + (data.total || 0),
+          lastOrderDate: new Date().toISOString(),
+        });
+      } else {
+        addCustomer({
+          name: data.customer.name || 'عميل',
+          phone: data.customer.phone,
+          email: data.customer.email || '',
+          address: data.customer.address || data.deliveryAddress || '',
+          totalOrders: 1,
+          totalSpent: data.total || 0,
+          lastOrderDate: new Date().toISOString(),
+          tags: [],
+          status: 'نشط',
+          marketing: { allowWhatsApp: true, allowEmail: true },
+        });
+      }
+    }
+    
     return NextResponse.json({
       success: true,
-      orderNumber,
+      orderNumber: order.orderNumber,
       message: 'تم استلام طلبك بنجاح! سنتواصل معك قريباً',
-      ...data,
-      _id: `mock-${Date.now()}`,
-      createdAt: new Date().toISOString()
+      order
     });
+  } catch (error) {
+    console.error("Error creating order:", error);
+    return NextResponse.json({ error: "خطأ في إنشاء الطلب" }, { status: 500 });
   }
-  
-  // إنشاء رقم الطلب تلقائياً
-  const count = await Order.countDocuments();
-  const orderNumber = `JF-${String(count + 1).padStart(6, '0')}`;
-  
-  const order = await Order.create({
-    ...data,
-    orderNumber,
-    statusHistory: [{ status: 'جديد', date: new Date() }]
-  });
-  
-  return NextResponse.json(order);
 }
 
 export async function PUT(req: Request) {
-  await dbConnect();
-  const data = await req.json();
-  const { _id, ...updateData } = data;
-  
-  if (!_id) {
-    return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
-  }
-  
-  // إذا تغيرت الحالة، أضفها للتاريخ
-  if (updateData.status) {
-    const order = await Order.findById(_id);
-    if (order && order.status !== updateData.status) {
-      updateData.statusHistory = [
-        ...(order.statusHistory || []),
-        { status: updateData.status, date: new Date() }
-      ];
+  try {
+    const data = await req.json();
+    const { _id, ...updateData } = data;
+    
+    if (!_id) {
+      return NextResponse.json({ error: 'معرف الطلب مطلوب' }, { status: 400 });
     }
+    
+    const order = updateOrder(_id, updateData);
+    if (!order) {
+      return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 });
+    }
+    
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error("Error updating order:", error);
+    return NextResponse.json({ error: "خطأ في تحديث الطلب" }, { status: 500 });
   }
-  
-  const updatedOrder = await Order.findByIdAndUpdate(_id, updateData, { new: true });
-  return NextResponse.json(updatedOrder);
-}
-
-export async function DELETE(req: Request) {
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  
-  if (!id) {
-    return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
-  }
-  
-  await Order.findByIdAndDelete(id);
-  return NextResponse.json({ success: true });
 }

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { products as localProducts } from "../products/data";
@@ -31,13 +31,15 @@ const availableExtras = [
   { id: 'perfume', name: 'عطر صغير', price: 75, emoji: '🌸' },
 ];
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [createdOrderNumber, setCreatedOrderNumber] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   // بيانات العميل
   const [customerName, setCustomerName] = useState("");
@@ -55,8 +57,101 @@ export default function CheckoutPage() {
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+
+  // أكواد الخصم
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [availableCoupons, setAvailableCoupons] = useState<Record<string, number>>({});
+
+  // العناوين المحفوظة + بيانات المستخدم
+  const [savedAddresses, setSavedAddresses] = useState<{ id: string; label: string; address: string; nationalAddress?: string; lat?: number; lng?: number; isDefault: boolean }[]>([]);
+  const [selectedSavedAddr, setSelectedSavedAddr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const u = localStorage.getItem('jenanflo_user');
+    if (u) {
+      try {
+        const parsed = JSON.parse(u);
+        if (parsed.name) setCustomerName(parsed.name);
+        if (parsed.phone) setCustomerPhone(parsed.phone);
+      } catch {}
+    }
+    // استخدم المفتاح الخاص بالمستخدم لقراءة عناوينه
+    import('@/lib/userStorage').then(({ getUD }) => {
+      const list = getUD<typeof savedAddresses>('jenanflo_addresses', []);
+      setSavedAddresses(list);
+      const def = list.find((a) => a.isDefault);
+      if (def) { setDeliveryAddress(def.address); setSelectedSavedAddr(def.id); }
+    });
+  }, []);
+
+  // إعدادات المتجر
+  const [storeSettings, setStoreSettings] = useState({ deliveryFee: 25, freeDeliveryMin: 300, storePhone: '966501234567' });
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => setStoreSettings({
+        deliveryFee: d.deliveryFee ?? 25,
+        freeDeliveryMin: d.freeDeliveryMin ?? 300,
+        storePhone: (d.storePhone || '966501234567').replace(/^\+/, '').replace(/^0/, '966')
+      }))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/coupons')
+      .then(r => r.json())
+      .then((list: { code: string; discount: number; active: boolean }[]) => {
+        const map: Record<string, number> = {};
+        list.filter(c => c.active).forEach(c => { map[c.code] = c.discount; });
+        setAvailableCoupons(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  const detectLocation = () => {
+    setLocLoading(true);
+    setLocError("");
+    if (!navigator.geolocation) { setLocError("المتصفح لا يدعم تحديد الموقع"); setLocLoading(false); return; }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setSelectedLocation({ lat, lng });
+        setShowMap(true);
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ar`);
+          const d = await r.json();
+          if (d.display_name) setDeliveryAddress(d.display_name);
+        } catch {}
+        setLocLoading(false);
+      },
+      (err) => {
+        setLocError(err.code === 1 ? "يرجى السماح بالوصول للموقع" : "تعذر تحديد الموقع");
+        setLocLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const applyCoupon = () => {
+    const code = couponCode.toUpperCase().trim();
+    if (availableCoupons[code]) {
+      setCouponDiscount(availableCoupons[code]);
+      setCouponApplied(true);
+      setCouponError("");
+    } else {
+      setCouponError("كود الخصم غير صحيح");
+      setCouponApplied(false);
+      setCouponDiscount(0);
+    }
+  };
 
   useEffect(() => {
     const loadCartOrProduct = async () => {
@@ -102,10 +197,10 @@ export default function CheckoutPage() {
         }
       } else {
         // من السلة
-        const savedCart = localStorage.getItem('jenanflo_cart');
-        if (savedCart) {
-          setCartItems(JSON.parse(savedCart));
-        }
+        import('@/lib/userStorage').then(({ getUD }) => {
+          const savedCart = getUD<typeof cartItems>('jenanflo_cart', []);
+          setCartItems(savedCart);
+        });
       }
       setLoading(false);
     };
@@ -120,8 +215,10 @@ export default function CheckoutPage() {
   }, 0);
 
   const totalPrice = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = 25;
-  const finalTotal = totalPrice + deliveryFee + extrasTotal;
+  const isFreeDelivery = totalPrice >= storeSettings.freeDeliveryMin;
+  const deliveryFee = isFreeDelivery ? 0 : storeSettings.deliveryFee;
+  const discountAmount = couponApplied ? Math.round(totalPrice * couponDiscount / 100) : 0;
+  const finalTotal = totalPrice + deliveryFee + extrasTotal - discountAmount;
 
   const toggleExtra = (extraId: string) => {
     setSelectedExtras(prev => 
@@ -134,6 +231,13 @@ export default function CheckoutPage() {
   const handleSubmitOrder = async () => {
     if (!customerName || !customerPhone || !deliveryAddress) {
       alert('الرجاء تعبئة جميع الحقول المطلوبة');
+      return;
+    }
+
+    // التحقق من صحة رقم الجوال السعودي
+    const saudiPhoneRegex = /^05\d{8}$/;
+    if (!saudiPhoneRegex.test(customerPhone)) {
+      setPhoneError('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام');
       return;
     }
 
@@ -173,8 +277,10 @@ export default function CheckoutPage() {
         subtotal: totalPrice,
         extrasTotal,
         deliveryFee,
+        discountCode: couponApplied ? couponCode.toUpperCase() : null,
+        discountAmount,
         total: finalTotal,
-        status: 'pending'
+        status: 'جديد'
       };
 
       const res = await fetch('/api/orders', {
@@ -184,8 +290,11 @@ export default function CheckoutPage() {
       });
 
       if (res.ok) {
+        const result = await res.json();
         // مسح السلة
-        localStorage.removeItem('jenanflo_cart');
+        import('@/lib/userStorage').then(({ removeUD }) => removeUD('jenanflo_cart'));
+        window.dispatchEvent(new Event('cart-updated'));
+        setCreatedOrderNumber(result.orderNumber || result._id || '');
         setOrderSuccess(true);
       } else {
         alert('حدث خطأ أثناء إرسال الطلب');
@@ -209,21 +318,46 @@ export default function CheckoutPage() {
   }
 
   if (orderSuccess) {
+    const waMsg = encodeURIComponent(`مرحباً 🌸\nتم تأكيد طلبي رقم ${createdOrderNumber}\nأرجو التواصل معي لتأكيد موعد التوصيل`);
     return (
       <main className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(180deg, #1E2A2A 0%, #2D3436 100%)" }}>
-        <div className="text-center max-w-md">
-          <div className="text-8xl mb-6">✅</div>
-          <h1 className="text-3xl font-bold mb-4" style={{ color: "#C9A96E" }}>تم استلام طلبك!</h1>
-          <p className="text-lg mb-8" style={{ color: "#9AACAC" }}>
-            شكراً لك! سنتواصل معك قريباً لتأكيد الطلب وموعد التوصيل
+        <div className="text-center max-w-md w-full">
+          <div className="text-8xl mb-6 animate-bounce">🌸</div>
+          <h1 className="text-3xl font-bold mb-3" style={{ color: "#C9A96E" }}>تم استلام طلبك!</h1>
+          {createdOrderNumber && (
+            <div className="mb-4 px-6 py-3 rounded-2xl inline-block" style={{ background: "rgba(201,169,110,0.15)", border: "1px solid rgba(201,169,110,0.4)" }}>
+              <span className="text-sm" style={{ color: "#9AACAC" }}>رقم طلبك: </span>
+              <span className="text-xl font-mono font-bold" style={{ color: "#C9A96E" }}>{createdOrderNumber}</span>
+            </div>
+          )}
+          <p className="text-base mb-8" style={{ color: "#9AACAC" }}>
+            شكراً لك! سنتواصل معك قريباً لتأكيد الطلب وموعد التوصيل 🚚
           </p>
-          <Link
-            href="/"
-            className="inline-block px-8 py-4 rounded-full font-bold transition hover:scale-105"
-            style={{ background: "linear-gradient(135deg, #4A9BA0, #2D8B8B)", color: "#fff" }}
-          >
-            العودة للرئيسية
-          </Link>
+          <div className="flex flex-col gap-3">
+            <a
+              href={`https://wa.me/${storeSettings.storePhone}?text=${waMsg}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-bold transition hover:scale-105"
+              style={{ background: "#25D366", color: "#fff" }}
+            >
+              <span>💬</span> تواصل عبر واتساب
+            </a>
+            <Link
+              href={`/track?order=${createdOrderNumber}`}
+              className="flex items-center justify-center gap-2 w-full py-4 rounded-full font-bold transition hover:scale-105"
+              style={{ background: "rgba(74,155,160,0.2)", border: "1px solid #4A9BA0", color: "#4A9BA0" }}
+            >
+              📦 تتبع الطلب
+            </Link>
+            <Link
+              href="/"
+              className="text-sm mt-2 transition hover:underline"
+              style={{ color: "#9AACAC" }}
+            >
+              العودة للرئيسية
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -285,12 +419,14 @@ export default function CheckoutPage() {
                   <input
                     type="tel"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => { setCustomerPhone(e.target.value); setPhoneError(""); }}
                     className="w-full p-3 rounded-xl"
                     placeholder="05xxxxxxxx"
                     dir="ltr"
-                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(201, 169, 110, 0.3)", color: "#fff" }}
+                    maxLength={10}
+                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${phoneError ? '#ff6b6b' : 'rgba(201, 169, 110, 0.3)'}`, color: "#fff" }}
                   />
+                  {phoneError && <p className="text-xs mt-1" style={{ color: "#ff6b6b" }}>⚠️ {phoneError}</p>}
                 </div>
               </div>
             </div>
@@ -399,43 +535,89 @@ export default function CheckoutPage() {
               <h2 className="text-xl font-bold mb-6" style={{ color: "#C9A96E" }}>📍 عنوان التوصيل</h2>
               
               <div className="space-y-4">
-                {/* زر تحديد الموقع بالخريطة */}
-                <button
-                  type="button"
-                  onClick={() => setShowMap(!showMap)}
-                  className="w-full py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
-                  style={{ background: selectedLocation ? "rgba(74, 155, 160, 0.3)" : "rgba(201, 169, 110, 0.2)", border: "1px solid #C9A96E", color: "#C9A96E" }}
-                >
-                  <span>📍</span>
-                  {selectedLocation ? "تم تحديد الموقع ✓" : "حدد موقعك على الخريطة"}
-                </button>
+                {/* زر GPS */}
+                {!selectedLocation && (
+                  <button
+                    type="button"
+                    onClick={detectLocation}
+                    disabled={locLoading}
+                    className="w-full py-3 rounded-xl font-bold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{ background: "rgba(74, 155, 160, 0.15)", border: "1px solid rgba(74,155,160,0.5)", color: "#4A9BA0" }}
+                  >
+                    {locLoading ? "⏳ جاري تحديد موقعك..." : "📍 حدد موقعك تلقائياً (GPS)"}
+                  </button>
+                )}
+                {selectedLocation && (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl" style={{ background: "rgba(74,155,160,0.15)", border: "1px solid #4A9BA0" }}>
+                    <span style={{ color: "#4A9BA0" }}>✅ تم تحديد الموقع</span>
+                    <button type="button" onClick={() => { setSelectedLocation(null); setShowMap(false); }} className="text-xs" style={{ color: "#9AACAC" }}>تغيير</button>
+                  </div>
+                )}
+                {locError && <p className="text-xs" style={{ color: "#ff6b6b" }}>{locError}</p>}
 
-                {showMap && (
+                {showMap && selectedLocation && (
                   <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(74, 155, 160, 0.3)" }}>
-                    <div className="h-64 bg-gray-800 flex items-center justify-center relative">
-                      {/* خريطة تفاعلية بسيطة */}
-                      <div className="text-center p-4">
-                        <div className="text-4xl mb-2">🗺️</div>
-                        <p style={{ color: "#9AACAC" }}>اضغط لتحديد موقعك</p>
+                    <iframe
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${selectedLocation.lng - 0.01},${selectedLocation.lat - 0.01},${selectedLocation.lng + 0.01},${selectedLocation.lat + 0.01}&layer=mapnik&marker=${selectedLocation.lat},${selectedLocation.lng}`}
+                      className="w-full h-64"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                    />
+                    <div className="p-3 text-sm" style={{ background: "rgba(74, 155, 160, 0.1)", color: "#4A9BA0" }}>
+                      📍 الموقع: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+                    </div>
+                  </div>
+                )}
+
+                {/* عناوين محفوظة من حسابي */}
+                {savedAddresses.length > 0 && (
+                  <div>
+                    <p className="text-sm mb-2" style={{ color: "#9AACAC" }}>📂 عناوينك المحفوظة</p>
+                    <div className="space-y-2">
+                      {savedAddresses.map(addr => (
                         <button
+                          key={addr.id}
                           type="button"
                           onClick={() => {
-                            // محاكاة تحديد الموقع
-                            setSelectedLocation({ lat: 24.7136, lng: 46.6753 });
-                            setDeliveryAddress("الرياض - تم تحديد الموقع على الخريطة");
+                            setSelectedSavedAddr(addr.id);
+                            setDeliveryAddress(addr.address);
+                            if (addr.lat && addr.lng) {
+                              setSelectedLocation({ lat: addr.lat, lng: addr.lng });
+                              setShowMap(true);
+                            }
                           }}
-                          className="mt-4 px-4 py-2 rounded-full text-sm"
-                          style={{ background: "#4A9BA0", color: "#fff" }}
+                          className="w-full text-right p-3 rounded-xl transition-all hover:scale-[1.01]"
+                          style={{
+                            background: selectedSavedAddr === addr.id ? "rgba(74,155,160,0.2)" : "rgba(255,255,255,0.04)",
+                            border: `1px solid ${selectedSavedAddr === addr.id ? "#4A9BA0" : "rgba(201,169,110,0.2)"}`,
+                          }}
                         >
-                          استخدم موقعي الحالي
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span>{selectedSavedAddr === addr.id ? "✅" : "📍"}</span>
+                              <span className="font-bold text-sm" style={{ color: selectedSavedAddr === addr.id ? "#4A9BA0" : "#C9A96E" }}>
+                                {addr.label}
+                              </span>
+                              {addr.isDefault && (
+                                <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "rgba(74,155,160,0.2)", color: "#4A9BA0" }}>افتراضي</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs mt-1 truncate" style={{ color: "#8B9A9A" }}>{addr.address}</p>
+                          {addr.nationalAddress && (
+                            <p className="text-xs font-mono" style={{ color: "#C9A96E" }}>🇸🇦 {addr.nationalAddress}</p>
+                          )}
                         </button>
-                      </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedSavedAddr(null); setDeliveryAddress(""); }}
+                        className="w-full py-2 rounded-xl text-sm transition"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.1)", color: "#9AACAC" }}
+                      >
+                        + إدخال عنوان جديد يدوياً
+                      </button>
                     </div>
-                    {selectedLocation && (
-                      <div className="p-3 text-sm" style={{ background: "rgba(74, 155, 160, 0.1)", color: "#4A9BA0" }}>
-                        📍 الموقع: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -443,7 +625,7 @@ export default function CheckoutPage() {
                   <label className="block mb-2 text-sm" style={{ color: "#9AACAC" }}>العنوان بالتفصيل *</label>
                   <textarea
                     value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    onChange={(e) => { setDeliveryAddress(e.target.value); setSelectedSavedAddr(null); }}
                     className="w-full p-3 rounded-xl resize-none"
                     rows={3}
                     placeholder="المدينة، الحي، الشارع، رقم المبنى..."
@@ -654,8 +836,52 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex justify-between">
                   <span style={{ color: "#9AACAC" }}>التوصيل</span>
-                  <span style={{ color: "#4A9BA0" }}>{deliveryFee} ر.س</span>
+                  {isFreeDelivery ? (
+                    <span style={{ color: "#4A9BA0" }}>مجاني 🎉</span>
+                  ) : (
+                    <span style={{ color: "#4A9BA0" }}>{deliveryFee} ر.س</span>
+                  )}
                 </div>
+
+                {/* حقل كود الخصم */}
+                <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(201, 169, 110, 0.15)" }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: "#C9A96E" }}>🎟️ كود الخصم</p>
+                  {couponApplied ? (
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl" style={{ background: "rgba(74, 155, 160, 0.15)", border: "1px solid #4A9BA0" }}>
+                      <span style={{ color: "#4A9BA0" }}>✅ خصم {couponDiscount}% مطبّق ({couponCode.toUpperCase()})</span>
+                      <button onClick={() => { setCouponApplied(false); setCouponDiscount(0); setCouponCode(""); }} className="text-xs" style={{ color: "#9AACAC" }}>إلغاء</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="أدخل كود الخصم"
+                          value={couponCode}
+                          onChange={(e) => { setCouponCode(e.target.value); setCouponError(""); }}
+                          onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                          className="flex-1 px-3 py-2 rounded-xl text-sm text-right outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(201,169,110,0.3)", color: "#fff" }}
+                        />
+                        <button
+                          onClick={applyCoupon}
+                          className="px-4 py-2 rounded-xl text-sm font-bold"
+                          style={{ background: "linear-gradient(135deg, #C9A96E, #D4AF37)", color: "#1E2A2A" }}
+                        >
+                          تطبيق
+                        </button>
+                      </div>
+                      {couponError && <p className="text-xs mt-1" style={{ color: "#ff6b6b" }}>{couponError}</p>}
+                    </>
+                  )}
+                </div>
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span style={{ color: "#9AACAC" }}>الخصم ({couponDiscount}%)</span>
+                    <span style={{ color: "#4A9BA0" }}>- {discountAmount} ر.س</span>
+                  </div>
+                )}
                 <div className="flex justify-between pt-3" style={{ borderTop: "1px solid rgba(201, 169, 110, 0.2)" }}>
                   <span className="text-xl font-bold" style={{ color: "#C9A96E" }}>الإجمالي</span>
                   <span className="text-2xl font-bold" style={{ color: "#D4AF37" }}>{finalTotal} ر.س</span>
@@ -680,5 +906,20 @@ export default function CheckoutPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg, #1E2A2A 0%, #2D3436 100%)" }}>
+        <div className="text-center">
+          <div className="text-4xl mb-4">🌸</div>
+          <p style={{ color: "#C9A96E" }}>جاري التحميل...</p>
+        </div>
+      </main>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

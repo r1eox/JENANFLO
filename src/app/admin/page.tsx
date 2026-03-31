@@ -157,7 +157,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* صف ثاني */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Link href="/admin/campaigns" className="group bg-gradient-to-br from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30 rounded-2xl p-6 border border-purple-500/30 transition-all">
           <div className="text-5xl mb-4">📣</div>
           <h2 className="text-xl font-bold text-white mb-2">الحملات التسويقية</h2>
@@ -170,6 +170,13 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-bold text-white mb-2">رسائل واتساب</h2>
           <p className="text-gray-400 text-sm">إرسال الفواتير، تحديثات الطلبات، رسائل الشكر</p>
           <div className="mt-4 text-green-400 group-hover:translate-x-[-8px] transition-transform">← الدخول</div>
+        </Link>
+
+        <Link href="/admin/coupons" className="group bg-gradient-to-br from-yellow-500/20 to-amber-600/20 hover:from-yellow-500/30 hover:to-amber-600/30 rounded-2xl p-6 border border-yellow-500/30 transition-all">
+          <div className="text-5xl mb-4">🎟️</div>
+          <h2 className="text-xl font-bold text-white mb-2">أكواد الخصم</h2>
+          <p className="text-gray-400 text-sm">إضافة وإدارة أكواد الخصم وتفعيلها أو تعطيلها</p>
+          <div className="mt-4 text-yellow-400 group-hover:translate-x-[-8px] transition-transform">← الدخول</div>
         </Link>
 
         <Link href="/admin/settings" className="group bg-gradient-to-br from-gray-500/20 to-gray-600/20 hover:from-gray-500/30 hover:to-gray-600/30 rounded-2xl p-6 border border-gray-500/30 transition-all">

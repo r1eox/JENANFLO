@@ -1,59 +1,94 @@
-import { dbConnect } from "@/lib/mongodb";
-import { mockProducts } from "@/lib/mockData";
-import Product from "@/models/Product";
+import { 
+  getProducts, 
+  getProductsByCategory, 
+  getCategories,
+  addProduct, 
+  updateProduct, 
+  deleteProduct 
+} from "@/lib/localDb";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
-  const db = await dbConnect();
   const { searchParams } = new URL(req.url);
   const category = searchParams.get('category');
   const featured = searchParams.get('featured');
   
-  // إذا لم يكن MongoDB متاحاً، استخدم البيانات التجريبية
-  if (!db) {
-    let products = [...mockProducts];
-    if (category) products = products.filter(p => p.category === category);
-    if (featured === 'true') products = products.filter(p => p.featured);
-    return NextResponse.json(products);
+  let products = getProducts();
+  
+  if (category) {
+    // ابحث عن القسم بـ _id أو name للحصول على كلا القيمتين
+    const categories = getCategories();
+    const cat = categories.find(c => c._id === category || c.name === category);
+    const validValues = cat ? [cat._id, cat.name].filter(Boolean) : [category];
+    products = products.filter(p => validValues.includes(p.category) && p.active);
   }
   
-  const query: any = {};
-  if (category) query.category = category;
-  if (featured === 'true') query.featured = true;
+  if (featured === 'true') {
+    products = products.filter(p => p.featured === true);
+  }
   
-  const products = await Product.find(query).sort({ createdAt: -1 });
   return NextResponse.json(products);
 }
 
 export async function POST(req: Request) {
-  await dbConnect();
-  const data = await req.json();
-  const product = await Product.create(data);
-  return NextResponse.json(product);
+  try {
+    const data = await req.json();
+    const product = addProduct({
+      name: data.name,
+      description: data.description || "",
+      price: Number(data.price),
+      originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+      image: data.image || "",
+      category: data.category || "gifts",
+      stock: Number(data.stock) || 10,
+      active: data.active !== false,
+      featured: data.featured === true
+    });
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error("Error adding product:", error);
+    return NextResponse.json({ error: "خطأ في إضافة المنتج" }, { status: 500 });
+  }
 }
 
 export async function PUT(req: Request) {
-  await dbConnect();
-  const data = await req.json();
-  const { _id, ...updateData } = data;
-  
-  if (!_id) {
-    return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
+  try {
+    const data = await req.json();
+    const { _id, ...updateData } = data;
+    
+    if (!_id) {
+      return NextResponse.json({ error: 'معرف المنتج مطلوب' }, { status: 400 });
+    }
+    
+    const product = updateProduct(_id, updateData);
+    if (!product) {
+      return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
+    }
+    
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error("Error updating product:", error);
+    return NextResponse.json({ error: "خطأ في تحديث المنتج" }, { status: 500 });
   }
-  
-  const product = await Product.findByIdAndUpdate(_id, updateData, { new: true });
-  return NextResponse.json(product);
 }
 
 export async function DELETE(req: Request) {
-  await dbConnect();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  
-  if (!id) {
-    return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'معرف المنتج مطلوب' }, { status: 400 });
+    }
+    
+    const success = deleteProduct(id);
+    if (!success) {
+      return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
+    }
+    
+    return NextResponse.json({ success: true, message: "تم حذف المنتج بنجاح" });
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    return NextResponse.json({ error: "خطأ في حذف المنتج" }, { status: 500 });
   }
-  
-  await Product.findByIdAndDelete(id);
-  return NextResponse.json({ success: true });
 }

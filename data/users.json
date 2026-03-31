@@ -1,0 +1,11 @@
+[
+  {
+    "_id": "user1772709049848",
+    "name": "نايف",
+    "email": "noz7gg@gmail.com",
+    "passwordHash": "$2b$10$onN7zdeXcAqW6OGXVP7qdugxApmSKV3/eVvv2oDaI5/nSJBE.6joW",
+    "role": "customer",
+    "createdAt": "2026-03-05T11:10:49.848Z",
+    "phone": "0555555555"
+  }
+]

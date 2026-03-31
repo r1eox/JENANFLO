@@ -8,10 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@prisma/client": "^7.4.2",
+    "@supabase/supabase-js": "^2.98.0",
+    "@types/bcryptjs": "^2.4.6",
     "autoprefixer": "^10.4.27",
+    "bcryptjs": "^3.0.3",
     "mongoose": "^9.2.3",
-    "next": "16.1.6",
+    "next": "^14.2.29",
     "postcss": "^8.5.6",
+    "prisma": "^7.4.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
@@ -20,7 +25,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^14.2.35",
     "tailwindcss": "^4.2.1",
     "typescript": "^5"
   }

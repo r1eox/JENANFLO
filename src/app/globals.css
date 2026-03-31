@@ -24,6 +24,10 @@ body {
   color: #C9A96E;
 }
 
+* {
+  font-family: 'Tajawal', 'Cairo', 'Segoe UI', Arial, sans-serif;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   background: #1E2A2A;

@@ -2,15 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 // حماية مسارات لوحة الإدارة: يسمح فقط للمستخدمين من نوع admin
 export function middleware(request: NextRequest) {
-  // مثال: التحقق من وجود session أو JWT في الكوكيز
-  const token = request.cookies.get("token")?.value;
-  // في تطبيق حقيقي: فك التوكن والتحقق من الدور
-  if (!token) {
+  // التحقق من وجود session في الكوكيز
+  const userCookie = request.cookies.get("jenanflo_user")?.value;
+  
+  if (!userCookie) {
     // إعادة التوجيه لصفحة تسجيل الدخول
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
-  // يمكن إضافة تحقق من الدور هنا (admin فقط)
-  // ...
+  
+  try {
+    const user = JSON.parse(userCookie);
+    // التحقق من أن المستخدم admin
+    if (user.role !== "admin") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  } catch {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
+  
   return NextResponse.next();
 }
 

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 type Customer = {
-  id: string;
+  _id: string;
   name: string;
   phone: string;
   email?: string;
@@ -11,134 +11,76 @@ type Customer = {
   totalOrders: number;
   totalSpent: number;
   lastOrderDate?: string;
-  tags: string[];
-  status: string;
-  marketing: {
-    allowWhatsApp: boolean;
-    allowEmail: boolean;
-  };
-  specialDates?: {
-    name: string;
-    date: string;
-  }[];
   createdAt: string;
+  notes?: string;
 };
 
-export default function AdminCustomers() {
+export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState("الكل");
   const [loading, setLoading] = useState(true);
-  const [showMessageModal, setShowMessageModal] = useState(false);
-  const [message, setMessage] = useState("");
-  const [showAddDateModal, setShowAddDateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [newDate, setNewDate] = useState({ name: "", date: "" });
+  const [sortBy, setSortBy] = useState<"totalSpent" | "totalOrders" | "createdAt">("totalSpent");
 
   useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/customers');
-        if (res.ok) {
-          const data = await res.json();
-          const formattedCustomers = data.map((c: any) => ({
-            id: c._id,
-            name: c.name,
-            phone: c.phone,
-            email: c.email,
-            address: c.address,
-            totalOrders: c.totalOrders || 0,
-            totalSpent: c.totalSpent || 0,
-            lastOrderDate: c.lastOrderDate,
-            tags: c.tags || [],
-            status: c.status || 'نشط',
-            marketing: c.marketing || { allowWhatsApp: true, allowEmail: true },
-            specialDates: c.specialDates || [],
-            createdAt: c.createdAt,
-          }));
-          setCustomers(formattedCustomers);
-        }
-      } catch (error) {
-        console.error('Error loading customers:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadCustomers();
+    fetchCustomers();
   }, []);
 
-  const filteredCustomers = customers.filter((customer) => {
-    const matchesFilter =
-      filter === "الكل" ||
-      (filter === "VIP" && customer.tags.includes("VIP")) ||
-      (filter === "نشط" && customer.status === "نشط") ||
-      (filter === "غير نشط" && customer.status === "غير نشط");
-    const matchesSearch =
-      customer.name.includes(searchTerm) ||
-      customer.phone.includes(searchTerm) ||
-      (customer.email?.includes(searchTerm) || false);
-    return matchesFilter && matchesSearch;
-  });
-
-  const toggleSelectCustomer = (id: string) => {
-    setSelectedCustomers((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
-  };
-
-  const selectAll = () => {
-    if (selectedCustomers.length === filteredCustomers.length) {
-      setSelectedCustomers([]);
-    } else {
-      setSelectedCustomers(filteredCustomers.map((c) => c.id));
+  const fetchCustomers = async () => {
+    try {
+      const res = await fetch("/api/customers");
+      const data = await res.json();
+      setCustomers(data.customers || data || []);
+    } catch (err) {
+      console.error("Error fetching customers:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const sendBulkWhatsApp = () => {
-    const selected = customers.filter((c) => selectedCustomers.includes(c.id));
-    selected.forEach((customer) => {
-      const encodedMessage = encodeURIComponent(message);
-      const phone = customer.phone.replace("+", "");
-      window.open(`https://wa.me/${phone}?text=${encodedMessage}`, "_blank");
+  const deleteCustomer = async (id: string) => {
+    if (!confirm("هل تريد حذف هذا العميل؟")) return;
+    try {
+      await fetch(`/api/customers?id=${id}`, { method: "DELETE" });
+      setCustomers((prev) => prev.filter((c) => c._id !== id));
+      if (selectedCustomer?._id === id) setSelectedCustomer(null);
+    } catch (err) {
+      console.error("Error deleting customer:", err);
+    }
+  };
+
+  const openWhatsApp = (phone: string, name: string) => {
+    const message = encodeURIComponent(`مرحبا ${name}! 🌸\n\nشكرا لتسوقك من جنان فلو`);
+    const p = phone.replace(/\s/g, "").replace(/^0/, "");
+    window.open(`https://wa.me/${p}?text=${message}`, "_blank");
+  };
+
+  const filteredCustomers = customers
+    .filter((c) => {
+      const q = searchQuery.toLowerCase();
+      return (
+        !q ||
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.includes(q) ||
+        c.email?.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === "totalSpent") return (b.totalSpent || 0) - (a.totalSpent || 0);
+      if (sortBy === "totalOrders") return (b.totalOrders || 0) - (a.totalOrders || 0);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  };
 
-  const addTag = (customerId: string, tag: string) => {
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === customerId && !c.tags.includes(tag)
-          ? { ...c, tags: [...c.tags, tag] }
-          : c
-      )
-    );
-  };
+  const totalRevenue = customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0);
+  const avgOrderValue = customers.length > 0
+    ? customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0) / customers.reduce((sum, c) => sum + (c.totalOrders || 0), 1)
+    : 0;
 
-  const removeTag = (customerId: string, tag: string) => {
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === customerId
-          ? { ...c, tags: c.tags.filter((t) => t !== tag) }
-          : c
-      )
-    );
-  };
-
-  const addSpecialDate = (customerId: string) => {
-    if (!newDate.name || !newDate.date) return;
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === customerId
-          ? {
-              ...c,
-              specialDates: [...(c.specialDates || []), newDate],
-            }
-          : c
-      )
-    );
-    setNewDate({ name: "", date: "" });
-    setShowAddDateModal(false);
+  const getCustomerTier = (spent: number) => {
+    if (spent >= 2000) return { label: "ذهبي", color: "text-yellow-400" };
+    if (spent >= 1000) return { label: "فضي", color: "text-gray-300" };
+    if (spent >= 500) return { label: "برونزي", color: "text-orange-400" };
+    return { label: "عادي", color: "text-gray-500" };
   };
 
   return (
@@ -147,335 +89,203 @@ export default function AdminCustomers() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <Link href="/admin" className="text-[#4A9BA0] hover:underline text-sm mb-2 inline-block">
-            ← العودة للوحة التحكم
+            &larr; لوحة التحكم
           </Link>
-          <h1 className="text-3xl font-bold text-[#C9A96E]">العملاء والتسويق</h1>
-          <p className="text-gray-400 mt-1">{customers.length} عميل مسجل</p>
+          <h1 className="text-3xl font-bold text-[#C9A96E]">العملاء</h1>
+          <p className="text-gray-400 mt-1">قاعدة بيانات العملاء</p>
         </div>
-        <div className="flex gap-4">
-          <input
-            type="text"
-            placeholder="بحث بالاسم أو الهاتف..."
-            className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 w-64"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Link
-            href="/admin/campaigns"
-            className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition"
-          >
-            📣 الحملات التسويقية
-          </Link>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-white">{customers.length}</div>
+            <div className="text-gray-400 text-sm">اجمالي العملاء</div>
+          </div>
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-[#C9A96E]">
+              {totalRevenue.toFixed(0)} ر.س
+            </div>
+            <div className="text-gray-400 text-sm">اجمالي الانفاق</div>
+          </div>
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-green-400">
+              {avgOrderValue.toFixed(0)} ر.س
+            </div>
+            <div className="text-gray-400 text-sm">متوسط الطلب</div>
+          </div>
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
+            <div className="text-2xl font-bold text-yellow-400">
+              {customers.filter((c) => (c.totalSpent || 0) >= 1000).length}
+            </div>
+            <div className="text-gray-400 text-sm">عملاء VIP</div>
+          </div>
         </div>
       </div>
 
-      {/* إحصائيات */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
-          <div className="text-2xl font-bold text-white">{customers.length}</div>
-          <div className="text-gray-400 text-sm">إجمالي العملاء</div>
-        </div>
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
-          <div className="text-2xl font-bold text-[#C9A96E]">
-            {customers.filter((c) => c.tags.includes("VIP")).length}
-          </div>
-          <div className="text-gray-400 text-sm">عملاء VIP</div>
-        </div>
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
-          <div className="text-2xl font-bold text-green-400">
-            {customers.filter((c) => c.status === "نشط").length}
-          </div>
-          <div className="text-gray-400 text-sm">عملاء نشطين</div>
-        </div>
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
-          <div className="text-2xl font-bold text-white">
-            {customers.reduce((sum, c) => sum + c.totalOrders, 0)}
-          </div>
-          <div className="text-gray-400 text-sm">إجمالي الطلبات</div>
-        </div>
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 border border-white/10">
-          <div className="text-2xl font-bold text-[#4A9BA0]">
-            {customers.reduce((sum, c) => sum + c.totalSpent, 0).toLocaleString()} ر.س
-          </div>
-          <div className="text-gray-400 text-sm">إجمالي المبيعات</div>
-        </div>
+      {/* Filters */}
+      <div className="flex gap-4 mb-6 flex-wrap">
+        <input
+          type="text"
+          placeholder="بحث بالاسم او الهاتف..."
+          className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 w-64"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <select
+          className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+        >
+          <option value="totalSpent">ترتيب حسب: الاعلى انفاقا</option>
+          <option value="totalOrders">ترتيب حسب: الاكثر طلبات</option>
+          <option value="createdAt">ترتيب حسب: الاحدث</option>
+        </select>
       </div>
 
-      {/* فلاتر */}
-      <div className="flex gap-2 mb-6 flex-wrap items-center">
-        <button
-          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "الكل" ? "bg-[#C9A96E] text-black" : "bg-white/10 text-white hover:bg-white/20"
-          }`}
-          onClick={() => setFilter("الكل")}
-        >
-          الكل
-        </button>
-        <button
-          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "VIP" ? "bg-[#C9A96E] text-black" : "bg-white/10 text-white hover:bg-white/20"
-          }`}
-          onClick={() => setFilter("VIP")}
-        >
-          ⭐ VIP
-        </button>
-        <button
-          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "نشط" ? "bg-green-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
-          }`}
-          onClick={() => setFilter("نشط")}
-        >
-          نشط
-        </button>
-        <button
-          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-            filter === "غير نشط" ? "bg-gray-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
-          }`}
-          onClick={() => setFilter("غير نشط")}
-        >
-          غير نشط
-        </button>
+      {/* Customers + detail */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Customer list */}
+        <div className="space-y-3">
+          {loading ? (
+            <div className="text-white text-center py-12">جاري التحميل...</div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="text-gray-400 text-center py-12">لا يوجد عملاء</div>
+          ) : (
+            filteredCustomers.map((customer) => {
+              const tier = getCustomerTier(customer.totalSpent || 0);
+              return (
+                <div
+                  key={customer._id}
+                  onClick={() => setSelectedCustomer(customer)}
+                  className={`bg-white/5 backdrop-blur rounded-xl border p-4 cursor-pointer transition hover:bg-white/10 ${
+                    selectedCustomer?._id === customer._id
+                      ? "border-[#C9A96E]/50"
+                      : "border-white/10"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-white font-bold">{customer.name}</span>
+                        <span className={`text-xs ${tier.color}`}>{tier.label}</span>
+                      </div>
+                      <p className="text-gray-400 text-sm">{customer.phone}</p>
+                      {customer.email && (
+                        <p className="text-gray-500 text-xs">{customer.email}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[#C9A96E] font-bold">
+                        {(customer.totalSpent || 0).toFixed(2)} ر.س
+                      </p>
+                      <p className="text-gray-400 text-sm">{customer.totalOrders || 0} طلبات</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
 
-        {selectedCustomers.length > 0 && (
-          <div className="mr-auto flex gap-2">
-            <span className="text-[#4A9BA0] text-sm">
-              {selectedCustomers.length} عميل محدد
-            </span>
-            <button
-              className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-600 transition"
-              onClick={() => setShowMessageModal(true)}
-            >
-              💬 إرسال رسالة جماعية
-            </button>
+        {/* Customer detail */}
+        {selectedCustomer && (
+          <div className="bg-white/5 backdrop-blur rounded-xl border border-white/10 p-6 h-fit sticky top-6">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-white font-bold text-xl">{selectedCustomer.name}</h2>
+                  <span className={`text-sm ${getCustomerTier(selectedCustomer.totalSpent || 0).color}`}>
+                    {getCustomerTier(selectedCustomer.totalSpent || 0).label}
+                  </span>
+                </div>
+                <p className="text-gray-400 text-sm">
+                  عميل منذ {new Date(selectedCustomer.createdAt).toLocaleDateString("ar-SA")}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedCustomer(null)}
+                className="text-gray-400 hover:text-white text-xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Contact info */}
+            <div className="bg-white/5 rounded-xl p-4 mb-4">
+              <h3 className="text-white font-medium mb-3">معلومات التواصل</h3>
+              <p className="text-gray-300 text-sm mb-1">
+                <span className="text-gray-500">الهاتف: </span>{selectedCustomer.phone}
+              </p>
+              {selectedCustomer.email && (
+                <p className="text-gray-300 text-sm mb-1">
+                  <span className="text-gray-500">البريد: </span>{selectedCustomer.email}
+                </p>
+              )}
+              {selectedCustomer.address && (
+                <p className="text-gray-300 text-sm">
+                  <span className="text-gray-500">العنوان: </span>{selectedCustomer.address}
+                </p>
+              )}
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-white/5 rounded-xl p-4">
+                <div className="text-xl font-bold text-[#C9A96E]">
+                  {(selectedCustomer.totalSpent || 0).toFixed(2)} ر.س
+                </div>
+                <div className="text-gray-400 text-xs">اجمالي الانفاق</div>
+              </div>
+              <div className="bg-white/5 rounded-xl p-4">
+                <div className="text-xl font-bold text-white">
+                  {selectedCustomer.totalOrders || 0}
+                </div>
+                <div className="text-gray-400 text-xs">عدد الطلبات</div>
+              </div>
+            </div>
+
+            {/* Last order */}
+            {selectedCustomer.lastOrderDate && (
+              <div className="bg-white/5 rounded-xl p-4 mb-4">
+                <h3 className="text-white font-medium mb-2">اخر طلب</h3>
+                <p className="text-gray-400 text-sm">
+                  {new Date(selectedCustomer.lastOrderDate).toLocaleDateString("ar-SA", {
+                    year: "numeric", month: "long", day: "numeric",
+                  })}
+                </p>
+              </div>
+            )}
+
+            {/* Notes */}
+            {selectedCustomer.notes && (
+              <div className="bg-white/5 rounded-xl p-4 mb-4">
+                <h3 className="text-white font-medium mb-2">ملاحظات</h3>
+                <p className="text-gray-400 text-sm">{selectedCustomer.notes}</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                className="flex-1 bg-[#25D366]/20 text-[#25D366] py-3 rounded-lg font-medium hover:bg-[#25D366]/30 transition text-sm"
+                onClick={() => openWhatsApp(selectedCustomer.phone, selectedCustomer.name)}
+              >
+                واتساب
+              </button>
+              <a
+                href={`tel:${selectedCustomer.phone}`}
+                className="flex-1 bg-blue-500/20 text-blue-400 py-3 rounded-lg font-medium hover:bg-blue-500/30 transition text-sm text-center"
+              >
+                اتصال
+              </a>
+              <button
+                className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition text-sm"
+                onClick={() => deleteCustomer(selectedCustomer._id)}
+              >
+                حذف
+              </button>
+            </div>
           </div>
         )}
       </div>
-
-      {/* جدول العملاء */}
-      <div className="bg-white/5 backdrop-blur rounded-2xl border border-white/10 overflow-hidden">
-        <table className="w-full text-right">
-          <thead className="bg-white/5">
-            <tr className="text-gray-400 border-b border-white/10">
-              <th className="p-4">
-                <input
-                  type="checkbox"
-                  checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
-                  onChange={selectAll}
-                  className="accent-[#C9A96E]"
-                />
-              </th>
-              <th className="p-4 font-medium">العميل</th>
-              <th className="p-4 font-medium">التواصل</th>
-              <th className="p-4 font-medium">الطلبات</th>
-              <th className="p-4 font-medium">إجمالي المشتريات</th>
-              <th className="p-4 font-medium">التصنيفات</th>
-              <th className="p-4 font-medium">المناسبات</th>
-              <th className="p-4 font-medium">إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={8} className="text-center text-gray-400 py-12">
-                  جاري التحميل...
-                </td>
-              </tr>
-            ) : filteredCustomers.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center text-gray-400 py-12">
-                  لا يوجد عملاء
-                </td>
-              </tr>
-            ) : (
-              filteredCustomers.map((customer) => (
-                <tr
-                  key={customer.id}
-                  className="border-b border-white/5 hover:bg-white/5"
-                >
-                  <td className="p-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedCustomers.includes(customer.id)}
-                      onChange={() => toggleSelectCustomer(customer.id)}
-                      className="accent-[#C9A96E]"
-                    />
-                  </td>
-                  <td className="p-4">
-                    <div className="text-white font-medium">{customer.name}</div>
-                    <div className="text-gray-400 text-xs">منذ {customer.createdAt}</div>
-                  </td>
-                  <td className="p-4">
-                    <div className="text-white text-sm">{customer.phone}</div>
-                    {customer.email && (
-                      <div className="text-gray-400 text-xs">{customer.email}</div>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <div className="text-white">{customer.totalOrders} طلب</div>
-                    <div className="text-gray-400 text-xs">
-                      آخر طلب: {customer.lastOrderDate || "-"}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="text-[#C9A96E] font-bold">
-                      {customer.totalSpent.toLocaleString()} ر.س
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-wrap gap-1">
-                      {customer.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className={`px-2 py-1 rounded-full text-xs cursor-pointer ${
-                            tag === "VIP"
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : tag === "عميل ذهبي"
-                              ? "bg-[#C9A96E]/20 text-[#C9A96E]"
-                              : "bg-white/10 text-gray-300"
-                          }`}
-                          onClick={() => removeTag(customer.id, tag)}
-                        >
-                          {tag} ×
-                        </span>
-                      ))}
-                      <button
-                        className="px-2 py-1 rounded-full text-xs bg-white/5 text-gray-400 hover:bg-white/10"
-                        onClick={() => addTag(customer.id, "VIP")}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    {customer.specialDates && customer.specialDates.length > 0 ? (
-                      <div className="space-y-1">
-                        {customer.specialDates.map((date, idx) => (
-                          <div key={idx} className="text-xs">
-                            <span className="text-pink-400">🎂</span>{" "}
-                            <span className="text-gray-300">{date.name}</span>
-                            <span className="text-gray-500"> ({date.date})</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 text-xs">-</span>
-                    )}
-                    <button
-                      className="text-[#4A9BA0] text-xs hover:underline mt-1 block"
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setShowAddDateModal(true);
-                      }}
-                    >
-                      + إضافة مناسبة
-                    </button>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      <button
-                        className="bg-green-500/20 text-green-400 px-3 py-1 rounded text-xs hover:bg-green-500/30"
-                        onClick={() => {
-                          const phone = customer.phone.replace("+", "");
-                          window.open(`https://wa.me/${phone}`, "_blank");
-                        }}
-                      >
-                        💬
-                      </button>
-                      <button className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded text-xs hover:bg-blue-500/30">
-                        📋
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* مودال الرسالة الجماعية */}
-      {showMessageModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1E2A2A] rounded-2xl p-6 w-full max-w-lg border border-white/10">
-            <h3 className="text-xl font-bold text-white mb-4">
-              💬 إرسال رسالة جماعية
-            </h3>
-            <p className="text-gray-400 mb-4">
-              سيتم إرسال الرسالة لـ {selectedCustomers.length} عميل
-            </p>
-            <textarea
-              className="w-full bg-white/10 border border-white/20 rounded-lg p-4 text-white placeholder-gray-400 h-40"
-              placeholder="اكتب رسالتك هنا..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <div className="flex gap-4 mt-4">
-              <button
-                className="flex-1 bg-green-500 text-white py-3 rounded-lg font-medium hover:bg-green-600 transition"
-                onClick={() => {
-                  sendBulkWhatsApp();
-                  setShowMessageModal(false);
-                  setMessage("");
-                }}
-              >
-                إرسال عبر واتساب
-              </button>
-              <button
-                className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
-                onClick={() => setShowMessageModal(false)}
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* مودال إضافة مناسبة */}
-      {showAddDateModal && selectedCustomer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1E2A2A] rounded-2xl p-6 w-full max-w-md border border-white/10">
-            <h3 className="text-xl font-bold text-white mb-4">
-              🎂 إضافة مناسبة خاصة
-            </h3>
-            <p className="text-gray-400 mb-4">
-              للعميل: {selectedCustomer.name}
-            </p>
-            <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="اسم المناسبة (مثل: عيد ميلاد)"
-                className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-white placeholder-gray-400"
-                value={newDate.name}
-                onChange={(e) => setNewDate({ ...newDate, name: e.target.value })}
-              />
-              <input
-                type="date"
-                className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-white"
-                value={newDate.date}
-                onChange={(e) => setNewDate({ ...newDate, date: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-4 mt-6">
-              <button
-                className="flex-1 bg-[#C9A96E] text-black py-3 rounded-lg font-medium hover:bg-[#D4AF37] transition"
-                onClick={() => addSpecialDate(selectedCustomer.id)}
-              >
-                إضافة
-              </button>
-              <button
-                className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
-                onClick={() => {
-                  setShowAddDateModal(false);
-                  setSelectedCustomer(null);
-                }}
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

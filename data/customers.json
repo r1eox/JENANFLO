@@ -1,0 +1,36 @@
+[
+  {
+    "name": "7867886",
+    "phone": "58656885678",
+    "email": "",
+    "address": "الرياض - تم تحديد الموقع على الخريطة",
+    "totalOrders": 1,
+    "totalSpent": 87,
+    "lastOrderDate": "2026-03-04T12:18:27.320Z",
+    "tags": [],
+    "status": "نشط",
+    "marketing": {
+      "allowWhatsApp": true,
+      "allowEmail": true
+    },
+    "_id": "cust1772626707320",
+    "createdAt": "2026-03-04T12:18:27.320Z"
+  },
+  {
+    "name": "645645",
+    "phone": "0555555555",
+    "email": "",
+    "address": "الرياض - تم تحديد الموقع على الخريطة",
+    "totalOrders": 2,
+    "totalSpent": 362,
+    "lastOrderDate": "2026-03-05T12:02:58.257Z",
+    "tags": [],
+    "status": "نشط",
+    "marketing": {
+      "allowWhatsApp": true,
+      "allowEmail": true
+    },
+    "_id": "cust1772630039293",
+    "createdAt": "2026-03-04T13:13:59.293Z"
+  }
+]

@@ -1,5 +1,5 @@
-"use client";
-import React, { useState, useEffect } from "react";
+﻿'use client';
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 type StatsData = {
@@ -73,6 +73,123 @@ export default function AdminReports() {
   }, [period]);
 
   const currentStats = stats;
+
+  // ===== تصدير Excel (CSV) =====
+  const exportToExcel = () => {
+    const periodLabel = periods.find(p => p.value === period)?.label || period;
+    const dateStr = new Date().toLocaleDateString('ar-SA');
+
+    const rows: (string | number)[][] = [
+      ['تقرير جنان فلو', '', '', ''],
+      ['الفترة:', periodLabel, 'تاريخ التصدير:', dateStr],
+      ['', '', '', ''],
+      ['إحصائيات الطلبات', '', '', ''],
+      ['إجمالي الطلبات', 'جديدة', 'قيد التحضير', 'تم التسليم'],
+      [currentStats.orders, currentStats.newOrders, currentStats.preparing, currentStats.delivered],
+      ['', '', '', ''],
+      ['الإحصائيات المالية', '', '', ''],
+      ['الإيرادات (ر.س)', 'الضريبة (ر.س)', 'المحصّل (ر.س)', 'معلّق (ر.س)'],
+      [currentStats.revenue, currentStats.tax, currentStats.collected, currentStats.pending],
+      ['', '', '', ''],
+      ['عملاء', 'متوسط الطلب (ر.س)', '', ''],
+      [currentStats.customers, currentStats.avgOrder, '', ''],
+    ];
+
+    if (topProducts.length > 0) {
+      rows.push(['', '', '', '']);
+      rows.push(['المنتجات الأكثر مبيعاً', '', '', '']);
+      rows.push(['المنتج', 'المبيعات', 'الإيراد (ر.س)', '']);
+      topProducts.forEach(p => rows.push([p.name, p.sales, p.revenue, '']));
+    }
+
+    const csvContent = rows
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `تقرير_جنان_فلو_${periodLabel}_${dateStr.replace(/\//g, '-')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // ===== تصدير PDF (طباعة) =====
+  const exportToPDF = () => {
+    const periodLabel = periods.find(p => p.value === period)?.label || period;
+    const dateStr = new Date().toLocaleDateString('ar-SA');
+
+    const html = `
+      <html dir="rtl">
+      <head>
+        <meta charset="utf-8">
+        <title>تقرير جنان فلو - ${periodLabel}</title>
+        <style>
+          body { font-family: Tahoma, Arial, sans-serif; padding: 30px; color: #222; direction: rtl; }
+          h1 { color: #C9A96E; border-bottom: 2px solid #C9A96E; padding-bottom: 8px; }
+          h2 { color: #4A9BA0; margin-top: 24px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          th { background: #f0f0f0; padding: 8px 12px; text-align: right; border: 1px solid #ddd; }
+          td { padding: 8px 12px; border: 1px solid #ddd; text-align: right; }
+          .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+          .stat-box { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; }
+          .stat-label { font-size: 12px; color: #666; }
+          .stat-value { font-size: 22px; font-weight: bold; color: #333; }
+          .footer { margin-top: 40px; font-size: 12px; color: #999; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <h1>📊 تقرير جنان فلو</h1>
+        <p>الفترة: <strong>${periodLabel}</strong> &nbsp;&nbsp; تاريخ الإصدار: ${dateStr}</p>
+
+        <h2>📦 إحصائيات الطلبات</h2>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-value">${currentStats.orders}</div><div class="stat-label">إجمالي الطلبات</div></div>
+          <div class="stat-box"><div class="stat-value">${currentStats.newOrders}</div><div class="stat-label">جديدة</div></div>
+          <div class="stat-box"><div class="stat-value">${currentStats.delivered}</div><div class="stat-label">تم التسليم</div></div>
+          <div class="stat-box"><div class="stat-value">${currentStats.cancelled}</div><div class="stat-label">ملغية</div></div>
+        </div>
+
+        <h2>💰 الإحصائيات المالية</h2>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-value">${currentStats.revenue.toLocaleString()}</div><div class="stat-label">الإيرادات (ر.س)</div></div>
+          <div class="stat-box"><div class="stat-value">${currentStats.tax.toLocaleString()}</div><div class="stat-label">الضريبة (ر.س)</div></div>
+          <div class="stat-box"><div class="stat-value">${currentStats.collected.toLocaleString()}</div><div class="stat-label">المحصّل (ر.س)</div></div>
+          <div class="stat-box"><div class="stat-value">${currentStats.pending.toLocaleString()}</div><div class="stat-label">معلّق (ر.س)</div></div>
+        </div>
+
+        ${topProducts.length > 0 ? `
+        <h2>🏆 المنتجات الأكثر مبيعاً</h2>
+        <table>
+          <thead><tr><th>#</th><th>المنتج</th><th>المبيعات</th><th>الإيراد (ر.س)</th></tr></thead>
+          <tbody>${topProducts.map((p, i) => `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.sales}</td><td>${p.revenue.toLocaleString()}</td></tr>`).join('')}</tbody>
+        </table>` : ''}
+
+        ${topCategories.length > 0 ? `
+        <h2>📁 المبيعات حسب القسم</h2>
+        <table>
+          <thead><tr><th>القسم</th><th>النسبة</th><th>الإيراد (ر.س)</th></tr></thead>
+          <tbody>${topCategories.map(c => `<tr><td>${c.name}</td><td>${c.percentage}%</td><td>${c.revenue.toLocaleString()}</td></tr>`).join('')}</tbody>
+        </table>` : ''}
+
+        <div class="footer">تم إنشاء هذا التقرير بواسطة نظام جنان فلو &copy; ${new Date().getFullYear()}</div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
+    }
+  };
 
   const recentOrders = [
     { id: "JF-000156", customer: "أحمد محمد", status: "جديد", amount: 427.5, date: "اليوم 14:30", statusColor: "text-blue-400" },
@@ -274,11 +391,21 @@ export default function AdminReports() {
 
       {/* أزرار التصدير */}
       <div className="flex gap-4 mt-6 justify-end">
-        <button className="bg-white/10 text-white px-6 py-3 rounded-lg hover:bg-white/20 transition flex items-center gap-2">
-          📥 تصدير Excel
+        <button
+          onClick={exportToExcel}
+          className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 hover:scale-105"
+          style={{ background: "linear-gradient(135deg, #1D6F42, #2E8B57)", color: "#fff" }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          تصدير Excel
         </button>
-        <button className="bg-white/10 text-white px-6 py-3 rounded-lg hover:bg-white/20 transition flex items-center gap-2">
-          📄 تصدير PDF
+        <button
+          onClick={exportToPDF}
+          className="px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 hover:scale-105"
+          style={{ background: "linear-gradient(135deg, #C9A96E, #D4AF37)", color: "#1E2A2A" }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          تصدير PDF
         </button>
       </div>
     </main>

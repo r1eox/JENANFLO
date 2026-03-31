@@ -49,7 +49,7 @@ const OrderSchema = new Schema({
 });
 
 // توليد رقم الطلب تلقائياً
-OrderSchema.pre('save', async function(next) {
+OrderSchema.pre('save', async function(this: any, next: any) {
   if (!this.orderNumber) {
     const count = await mongoose.models.Order.countDocuments();
     this.orderNumber = `JF-${String(count + 1).padStart(6, '0')}`;

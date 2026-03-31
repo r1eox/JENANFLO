@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { getUD, setUD, removeUD } from "@/lib/userStorage";
 
 interface CartItem {
   _id: string;
@@ -16,9 +17,9 @@ export default function CartPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('jenanflo_cart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
+    const savedCart = getUD<CartItem[]>('jenanflo_cart', []);
+    if (savedCart.length) {
+      setCartItems(savedCart);
     }
     setIsLoading(false);
   }, []);
@@ -29,18 +30,21 @@ export default function CartPage() {
       item._id === _id ? { ...item, quantity: newQuantity } : item
     );
     setCartItems(updated);
-    localStorage.setItem('jenanflo_cart', JSON.stringify(updated));
+    setUD('jenanflo_cart', updated);
+    window.dispatchEvent(new Event('cart-updated'));
   };
 
   const removeItem = (_id: string) => {
     const updated = cartItems.filter(item => item._id !== _id);
     setCartItems(updated);
-    localStorage.setItem('jenanflo_cart', JSON.stringify(updated));
+    setUD('jenanflo_cart', updated);
+    window.dispatchEvent(new Event('cart-updated'));
   };
 
   const clearCart = () => {
     setCartItems([]);
-    localStorage.removeItem('jenanflo_cart');
+    removeUD('jenanflo_cart');
+    window.dispatchEvent(new Event('cart-updated'));
   };
 
   const totalPrice = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);

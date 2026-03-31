@@ -1,44 +1,39 @@
-"use client";
-import React, { useState } from "react";
+﻿'use client';
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
-    // الضريبة
-    taxEnabled: true,
-    taxRate: 15,
-    // وسائل الدفع
-    paymentMada: true,
-    paymentTamara: true,
-    paymentTabby: true,
-    paymentCOD: true,
-    // التوصيل
-    deliveryFee: 25,
-    freeDeliveryMin: 300,
-    // الإشعارات التلقائية
-    autoConfirmOrder: true,
-    autoPreparingNotify: true,
-    autoDeliveryNotify: true,
-    autoDeliveredNotify: true,
-    autoThankYou: true,
-    thankYouDelay: 24, // ساعة
-    autoAbandonedCart: true,
-    abandonedCartDelay: 24, // ساعة
-    autoBirthdayReminder: true,
-    birthdayReminderDays: 3,
-    // معلومات المتجر
+    taxEnabled: true, taxRate: 15,
+    paymentMada: true, paymentTamara: true, paymentTabby: true, paymentCOD: true,
+    deliveryFee: 25, freeDeliveryMin: 300,
+    autoConfirmOrder: true, autoPreparingNotify: true, autoDeliveryNotify: true, autoDeliveredNotify: true,
+    autoThankYou: true, thankYouDelay: 24,
+    autoAbandonedCart: true, abandonedCartDelay: 24,
+    autoBirthdayReminder: true, birthdayReminderDays: 3,
     storeName: "جنان فلو",
     storePhone: "+966501234567",
     storeEmail: "info@jenanflo.com",
     storeAddress: "الرياض، المملكة العربية السعودية",
   });
-
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSave = () => {
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => { setSettings(s => ({ ...s, ...data })); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    // هنا ستحفظ الإعدادات في قاعدة البيانات
   };
 
   const Section = ({ title, children, icon }: { title: string; children: React.ReactNode; icon: string }) => (
