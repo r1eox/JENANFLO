@@ -16,11 +16,11 @@ export async function GET(req: Request) {
   
   // البحث برقم الطلب
   if (orderNumber) {
-    const order = getOrderByNumber(orderNumber);
+    const order = await getOrderByNumber(orderNumber);
     return NextResponse.json(order || null);
   }
 
-  let orders = getOrders();
+  let orders = await getOrders();
 
   // فلتر بالجوال (للعميل المسجل)
   const phone = searchParams.get('phone');
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   try {
     const data = await req.json();
     
-    const order = addOrder({
+    const order = await addOrder({
       customer: data.customer,
       items: data.items,
       extras: data.extras || [],
@@ -70,15 +70,15 @@ export async function POST(req: Request) {
 
     // إضافة أو تحديث بيانات العميل تلقائياً
     if (data.customer?.phone) {
-      const existing = getCustomerByPhone(data.customer.phone);
+    const existing = await getCustomerByPhone(data.customer.phone);
       if (existing) {
-        updateCustomer(existing._id, {
+        await updateCustomer(existing._id, {
           totalOrders: (existing.totalOrders || 0) + 1,
           totalSpent: (existing.totalSpent || 0) + (data.total || 0),
           lastOrderDate: new Date().toISOString(),
         });
       } else {
-        addCustomer({
+        await addCustomer({
           name: data.customer.name || 'عميل',
           phone: data.customer.phone,
           email: data.customer.email || '',
@@ -114,7 +114,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'معرف الطلب مطلوب' }, { status: 400 });
     }
     
-    const order = updateOrder(_id, updateData);
+    const order = await updateOrder(_id, updateData);
     if (!order) {
       return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 });
     }

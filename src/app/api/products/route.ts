@@ -13,11 +13,10 @@ export async function GET(req: Request) {
   const category = searchParams.get('category');
   const featured = searchParams.get('featured');
   
-  let products = getProducts();
+  let products = await getProducts();
   
   if (category) {
-    // ابحث عن القسم بـ _id أو name للحصول على كلا القيمتين
-    const categories = getCategories();
+    const categories = await getCategories();
     const cat = categories.find(c => c._id === category || c.name === category);
     const validValues = cat ? [cat._id, cat.name].filter(Boolean) : [category];
     products = products.filter(p => validValues.includes(p.category) && p.active);
@@ -33,7 +32,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const product = addProduct({
+    const product = await addProduct({
       name: data.name,
       description: data.description || "",
       price: Number(data.price),
@@ -60,7 +59,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'معرف المنتج مطلوب' }, { status: 400 });
     }
     
-    const product = updateProduct(_id, updateData);
+    const product = await updateProduct(_id, updateData);
     if (!product) {
       return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
     }
@@ -81,7 +80,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'معرف المنتج مطلوب' }, { status: 400 });
     }
     
-    const success = deleteProduct(id);
+    const success = await deleteProduct(id);
     if (!success) {
       return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
     }

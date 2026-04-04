@@ -8,13 +8,13 @@ import {
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const categories = getCategories();
+  const categories = await getCategories();
   
   // إضافة عدد المنتجات لكل قسم
-  const categoriesWithCount = categories.map(cat => {
-    const products = getProductsByCategory(cat.name);
+  const categoriesWithCount = await Promise.all(categories.map(async cat => {
+    const products = await getProductsByCategory(cat.name);
     return { ...cat, productsCount: products.length };
-  });
+  }));
   
   return NextResponse.json(categoriesWithCount);
 }
@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const category = addCategory({
+    const category = await addCategory({
       name: data.name || data.nameAr?.toLowerCase().replace(/\s+/g, '-'),
       nameAr: data.nameAr,
       description: data.description || "",
@@ -45,7 +45,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'معرف القسم مطلوب' }, { status: 400 });
     }
     
-    const category = updateCategory(_id, updateData);
+    const category = await updateCategory(_id, updateData);
     if (!category) {
       return NextResponse.json({ error: 'القسم غير موجود' }, { status: 404 });
     }
@@ -66,7 +66,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'معرف القسم مطلوب' }, { status: 400 });
     }
     
-    const success = deleteCategory(id);
+    const success = await deleteCategory(id);
     if (!success) {
       return NextResponse.json({ error: 'القسم غير موجود' }, { status: 404 });
     }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getUsers, getUserByEmail, addUser, updateUser } from "@/lib/localDb";
 
 export async function GET() {
-  const users = getUsers();
+  const users = await getUsers();
   // إخفاء كلمات المرور
   const safeUsers = users.map(u => ({ ...u, password: undefined }));
   return NextResponse.json(safeUsers);
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
     
     // التحقق من عدم وجود المستخدم
-    const existing = getUserByEmail(body.email);
+    const existing = await getUserByEmail(body.email);
     if (existing) {
       return NextResponse.json(
         { error: "البريد مستخدم مسبقاً" },
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       );
     }
     
-    const newUser = addUser({
+    const newUser = await addUser({
       name: body.name,
       email: body.email,
       passwordHash: body.password, // في الإنتاج يجب تشفيرها
@@ -51,10 +51,10 @@ export async function PATCH(req: Request) {
     const { email, phone } = body;
     if (!email) return NextResponse.json({ error: "البريد مطلوب" }, { status: 400 });
 
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     if (!user) return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
 
-    const updated = updateUser(user._id, { phone });
+    const updated = await updateUser(user._id, { phone });
     return NextResponse.json({ success: true, phone: updated?.phone });
   } catch {
     return NextResponse.json({ error: "حدث خطأ" }, { status: 500 });

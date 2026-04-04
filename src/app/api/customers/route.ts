@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   
   // جلب عميل محدد
   if (id) {
-    const customer = getCustomerById(id);
+    const customer = await getCustomerById(id);
     if (!customer) {
       return NextResponse.json({ error: "العميل غير موجود" }, { status: 404 });
     }
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   }
   
   // جلب كل العملاء مع الفلترة
-  let customers = getCustomers();
+  let customers = await getCustomers();
   
   if (status) {
     customers = customers.filter(c => c.status === status);
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     }
     
     // التحقق من عدم وجود العميل
-    const existing = getCustomerByPhone(body.phone);
+    const existing = await getCustomerByPhone(body.phone);
     if (existing) {
       return NextResponse.json(
         { error: "العميل موجود مسبقاً", customer: existing },
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       );
     }
     
-    const newCustomer = addCustomer({
+    const newCustomer = await addCustomer({
       name: body.name,
       phone: body.phone,
       email: body.email,
@@ -100,7 +100,7 @@ export async function PUT(req: Request) {
       );
     }
     
-    const updated = updateCustomer(body._id, body);
+    const updated = await updateCustomer(body._id, body);
     
     if (!updated) {
       return NextResponse.json(
@@ -129,7 +129,7 @@ export async function DELETE(req: Request) {
     );
   }
   
-  const deleted = deleteCustomer(id);
+  const deleted = await deleteCustomer(id);
   
   if (!deleted) {
     return NextResponse.json(

@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  name          String
+  description   String   @default("")
+  price         Float
+  originalPrice Float?
+  image         String   @default("")
+  category      String   @default("")
+  stock         Int      @default(0)
+  active        Boolean  @default(true)
+  featured      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Category {
+  id          String  @id
+  name        String  @unique
+  nameAr      String
+  description String  @default("")
+  image       String  @default("")
+  active      Boolean @default(true)
+}
+
+model Order {
+  id             String   @id @default(cuid())
+  orderNumber    String   @unique
+  customer       Json
+  items          Json
+  extras         Json     @default("[]")
+  extrasTotal    Float    @default(0)
+  discountCode   String?
+  discountAmount Float    @default(0)
+  subtotal       Float    @default(0)
+  tax            Float    @default(0)
+  deliveryFee    Float    @default(0)
+  total          Float    @default(0)
+  status         String   @default("جديد")
+  paymentMethod  String   @default("نقدي")
+  paymentStatus  String   @default("معلق")
+  giftMessage    String?
+  deliveryDate   String?
+  deliveryTime   String?
+  notes          String?
+  createdAt      DateTime @default(now())
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String   @unique
+  email         String?
+  address       String?
+  totalOrders   Int      @default(0)
+  totalSpent    Float    @default(0)
+  lastOrderDate String?
+  tags          String[] @default([])
+  status        String   @default("نشط")
+  marketing     Json     @default("{\"allowWhatsApp\":true,\"allowEmail\":true}")
+  specialDates  Json     @default("[]")
+  createdAt     DateTime @default(now())
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         String   @default("customer")
+  createdAt    DateTime @default(now())
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  type        String
+  status      String   @default("مسودة")
+  target      String   @default("الكل")
+  message     String   @default("")
+  sentCount   Int      @default(0)
+  openRate    Float    @default(0)
+  clickRate   Float    @default(0)
+  scheduledAt String?
+  sentAt      String?
+  createdAt   DateTime @default(now())
+}
+
+model Settings {
+  id                   String  @id @default("singleton")
+  storeName            String  @default("جنان فلو")
+  storePhone           String  @default("+966501234567")
+  storeEmail           String  @default("info@jenanflo.com")
+  storeAddress         String  @default("الرياض، المملكة العربية السعودية")
+  taxEnabled           Boolean @default(true)
+  taxRate              Float   @default(15)
+  deliveryFee          Float   @default(25)
+  freeDeliveryMin      Float   @default(300)
+  paymentMada          Boolean @default(true)
+  paymentTamara        Boolean @default(true)
+  paymentTabby         Boolean @default(true)
+  paymentCOD           Boolean @default(true)
+  autoConfirmOrder     Boolean @default(true)
+  autoPreparingNotify  Boolean @default(true)
+  autoDeliveryNotify   Boolean @default(true)
+  autoDeliveredNotify  Boolean @default(true)
+  autoThankYou         Boolean @default(true)
+  thankYouDelay        Int     @default(24)
+  autoAbandonedCart    Boolean @default(true)
+  abandonedCartDelay   Int     @default(24)
+  autoBirthdayReminder Boolean @default(true)
+  birthdayReminderDays Int     @default(3)
+}
+
+model Coupon {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  discount  Float
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

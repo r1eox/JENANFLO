@@ -6,7 +6,7 @@ export async function GET(req: Request) {
   const period = searchParams.get('period') || 'today';
   
   // جلب الإحصائيات الحقيقية من localDb
-  const stats = getStats(period);
+  const stats = await getStats(period);
   
   return NextResponse.json({
     orders: stats.orders,

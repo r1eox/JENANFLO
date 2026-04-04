@@ -15,13 +15,13 @@ export async function POST(req: Request) {
     }
 
     // تحقق من عدم تكرار البريد
-    const existing = getUserByEmail(email);
+    const existing = await getUserByEmail(email);
     if (existing) {
       return NextResponse.json({ error: "البريد الإلكتروني مستخدم مسبقاً" }, { status: 400 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = addUser({ name, email, phone: phone || '', passwordHash, role: 'customer' });
+    const user = await addUser({ name, email, phone: phone || '', passwordHash, role: 'customer' });
 
     return NextResponse.json({
       message: "تم إنشاء الحساب بنجاح",

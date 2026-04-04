@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     }
     
     // البحث في قاعدة البيانات المحلية
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     if (!user) {
       return NextResponse.json({ error: "البريد الإلكتروني غير صحيح" }, { status: 401 });
     }

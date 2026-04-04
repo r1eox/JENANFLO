@@ -14,14 +14,14 @@ export async function GET(req: Request) {
   const type = searchParams.get('type');
   
   if (id) {
-    const campaign = getCampaignById(id);
+    const campaign = await getCampaignById(id);
     if (!campaign) {
       return NextResponse.json({ error: "الحملة غير موجودة" }, { status: 404 });
     }
     return NextResponse.json(campaign);
   }
   
-  let campaigns = getCampaigns();
+  let campaigns = await getCampaigns();
   
   if (status) {
     campaigns = campaigns.filter(c => c.status === status);
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       );
     }
     
-    const newCampaign = addCampaign({
+    const newCampaign = await addCampaign({
       name: body.name,
       type: body.type,
       status: body.status || 'مسودة',
@@ -75,7 +75,7 @@ export async function PUT(req: Request) {
       );
     }
     
-    const updated = updateCampaign(body._id, body);
+    const updated = await updateCampaign(body._id, body);
     
     if (!updated) {
       return NextResponse.json(
@@ -104,7 +104,7 @@ export async function DELETE(req: Request) {
     );
   }
   
-  const deleted = deleteCampaign(id);
+  const deleted = await deleteCampaign(id);
   
   if (!deleted) {
     return NextResponse.json(
