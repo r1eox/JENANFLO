@@ -125,6 +125,10 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-[#C9A96E]/30 bg-[#C9A96E]/10 p-4 mb-6 text-sm text-[#f7e8b4]">
+        ✅ لوحة الإدارة الآن محمية وتعمل مع الحسابات التي تملك دور admin.
+      </div>
+
       {/* القائمة الرئيسية */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Link href="/admin/products" className="group bg-gradient-to-br from-pink-500/20 to-pink-600/20 hover:from-pink-500/30 hover:to-pink-600/30 rounded-2xl p-6 border border-pink-500/30 transition-all">
