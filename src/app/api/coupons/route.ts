@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCoupons, addCoupon, deleteCoupon, updateCoupon } from '@/lib/localDb';
+import { getCoupons, getCouponByCode, addCoupon, deleteCoupon, updateCoupon } from '@/lib/localDb';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const code = searchParams.get('code');
+
+  if (code) {
+    const coupon = await getCouponByCode(code);
+    if (!coupon || !coupon.active) {
+      return NextResponse.json({ error: 'الكود غير موجود أو غير مفعل' }, { status: 404 });
+    }
+    return NextResponse.json(coupon);
+  }
+
   const coupons = await getCoupons();
   return NextResponse.json(coupons);
 }

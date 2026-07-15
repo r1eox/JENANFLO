@@ -140,14 +140,30 @@ function CheckoutContent() {
     );
   };
 
-  const applyCoupon = () => {
+  const applyCoupon = async () => {
     const code = couponCode.toUpperCase().trim();
-    if (availableCoupons[code]) {
-      setCouponDiscount(availableCoupons[code]);
-      setCouponApplied(true);
-      setCouponError("");
-    } else {
-      setCouponError("كود الخصم غير صحيح");
+    if (!code) {
+      setCouponError("أدخل كود الخصم أولاً");
+      setCouponApplied(false);
+      setCouponDiscount(0);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+
+      if (res.ok && data?.active) {
+        setCouponDiscount(Number(data.discount) || 0);
+        setCouponApplied(true);
+        setCouponError("");
+      } else {
+        setCouponError("كود الخصم غير صحيح أو غير مفعل");
+        setCouponApplied(false);
+        setCouponDiscount(0);
+      }
+    } catch {
+      setCouponError("تعذر التحقق من كود الخصم");
       setCouponApplied(false);
       setCouponDiscount(0);
     }

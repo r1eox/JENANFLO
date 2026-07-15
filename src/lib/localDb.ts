@@ -372,6 +372,11 @@ export async function getCoupons(): Promise<Coupon[]> {
   const rows = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
   return rows.map(mapCoupon);
 }
+export async function getCouponByCode(code: string): Promise<Coupon | undefined> {
+  const normalized = code.toUpperCase().trim();
+  const c = await prisma.coupon.findUnique({ where: { code: normalized } });
+  return c ? mapCoupon(c) : undefined;
+}
 export async function addCoupon(data: Omit<Coupon, '_id' | 'createdAt'>): Promise<Coupon> {
   const c = await prisma.coupon.create({ data: { id: `coup${Date.now()}`, code: data.code.toUpperCase().trim(), discount: data.discount, active: data.active !== false } });
   return mapCoupon(c);
