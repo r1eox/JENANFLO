@@ -53,13 +53,14 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const data = await req.json();
-    const { _id, ...updateData } = data;
+    const productId = data._id || data.id;
+    const { _id, id, ...updateData } = data;
     
-    if (!_id) {
+    if (!productId) {
       return NextResponse.json({ error: 'معرف المنتج مطلوب' }, { status: 400 });
     }
     
-    const product = await updateProduct(_id, updateData);
+    const product = await updateProduct(productId, updateData);
     if (!product) {
       return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
     }
@@ -74,7 +75,7 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+    const id = searchParams.get('id') || searchParams.get('_id');
     
     if (!id) {
       return NextResponse.json({ error: 'معرف المنتج مطلوب' }, { status: 400 });

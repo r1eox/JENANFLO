@@ -40,6 +40,7 @@ export default function AdminProducts() {
 
   const [activeTab, setActiveTab] = useState<"products" | "categories">("products");
   const [loading, setLoading] = useState(true);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -50,6 +51,13 @@ export default function AdminProducts() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
+  useEffect(() => {
+    if (feedback) {
+      const timer = window.setTimeout(() => setFeedback(null), 3000);
+      return () => window.clearTimeout(timer);
+    }
+  }, [feedback]);
+
   useEffect(() => { loadData(); }, []);
 
   const handleSaveCategory = async () => {
@@ -57,11 +65,18 @@ export default function AdminProducts() {
     try {
       if (editingCat) {
         const res = await fetch('/api/categories', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _id: editingCat._id, ...catForm }) });
-        if (res.ok) { const u = await res.json(); setCategories(prev => prev.map(c => c._id === editingCat._id ? u : c)); }
+        if (res.ok) {
+          const u = await res.json();
+          setCategories(prev => prev.map(c => c._id === editingCat._id ? u : c));
+          setFeedback('تم تحديث التصنيف بنجاح');
+        }
       } else {
         const res = await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(catForm) });
-        if (res.ok) setCategories(prev => [...prev, res.json() as unknown as Category]);
-        await loadData();
+        if (res.ok) {
+          await res.json();
+          await loadData();
+          setFeedback('تم إضافة التصنيف بنجاح');
+        }
       }
     } catch (e) { console.error(e); }
     setShowCatModal(false); setEditingCat(null); setCatForm({ name: "", nameAr: "", description: "", image: "" });
@@ -70,7 +85,10 @@ export default function AdminProducts() {
   const handleDeleteCategory = async (id: string) => {
     if (!window.confirm("هل أنت متأكد من حذف هذا التصنيف؟")) return;
     const res = await fetch(`/api/categories?id=${id}`, { method: 'DELETE' });
-    if (res.ok) setCategories(prev => prev.filter(c => c._id !== id));
+    if (res.ok) {
+      await loadData();
+      setFeedback('تم حذف التصنيف بنجاح');
+    }
   };
 
   const handleSaveProduct = async () => {
@@ -85,10 +103,18 @@ export default function AdminProducts() {
     try {
       if (editingProd) {
         const res = await fetch('/api/products', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _id: editingProd._id, ...productData }) });
-        if (res.ok) { const u = await res.json(); setProducts(prev => prev.map(p => p._id === editingProd._id ? u : p)); }
+        if (res.ok) {
+          await res.json();
+          await loadData();
+          setFeedback('تم تحديث المنتج بنجاح');
+        }
       } else {
         const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(productData) });
-        if (res.ok) { const n = await res.json(); setProducts(prev => [...prev, n]); }
+        if (res.ok) {
+          await res.json();
+          await loadData();
+          setFeedback('تم إضافة المنتج بنجاح');
+        }
       }
     } catch (e) { console.error(e); }
     setShowProdModal(false); setEditingProd(null);
@@ -98,7 +124,10 @@ export default function AdminProducts() {
   const handleDeleteProduct = async (id: string) => {
     if (!window.confirm("هل أنت متأكد من حذف هذا المنتج؟")) return;
     const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
-    if (res.ok) setProducts(prev => prev.filter(p => p._id !== id));
+    if (res.ok) {
+      await loadData();
+      setFeedback('تم حذف المنتج بنجاح');
+    }
   };
 
   const editCategory = (cat: Category) => {
@@ -120,6 +149,11 @@ export default function AdminProducts() {
           <Link href="/admin" className="text-[#4A9BA0] hover:underline text-sm mb-2 inline-block">&#8594; العودة للوحة التحكم</Link>
           <h1 className="text-3xl font-bold text-[#C9A96E]">إدارة المنتجات</h1>
         </div>
+        {feedback && (
+          <div className="rounded-lg border border-[#C9A96E]/40 bg-[#C9A96E]/15 px-4 py-2 text-sm text-[#f7e8b4]">
+            {feedback}
+          </div>
+        )}
         <button
           className="bg-[#C9A96E] text-black px-6 py-3 rounded-lg font-medium hover:bg-[#D4AF37] transition flex items-center gap-2"
           onClick={() => {
@@ -154,7 +188,7 @@ export default function AdminProducts() {
                 {prod.originalPrice && prod.originalPrice > prod.price && (
                   <span className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs">خصم {Math.round((1 - prod.price / prod.originalPrice) * 100)}%</span>
                 )}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 flex-wrap p-2">
+                <div className="absolute inset-0 bg-black/70 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition flex items-center justify-center gap-2 flex-wrap p-2">
                   <button className="bg-white text-black px-3 py-2 rounded-lg text-sm font-medium" onClick={() => editProduct(prod)}>&#9998; تعديل</button>
                   <Link href={`/products/${prod._id}`} target="_blank" className="bg-[#4A9BA0] text-white px-3 py-2 rounded-lg text-sm font-medium">&#128065; عرض</Link>
                   <button className="bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-medium" onClick={() => handleDeleteProduct(prod._id)}>&#128465; حذف</button>
@@ -180,7 +214,7 @@ export default function AdminProducts() {
             <div key={cat._id} className="bg-white/5 rounded-xl border border-white/10 overflow-hidden hover:border-white/30 transition group">
               <div className="relative h-40">
                 {cat.image ? <img src={cat.image} alt={cat.nameAr} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-white/10 flex items-center justify-center text-4xl">&#128193;</div>}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                <div className="absolute inset-0 bg-black/70 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition flex items-center justify-center gap-2">
                   <button className="bg-white text-black px-4 py-2 rounded-lg text-sm font-medium" onClick={() => editCategory(cat)}>&#9998; تعديل</button>
                   <button className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-medium" onClick={() => handleDeleteCategory(cat._id)}>&#128465; حذف</button>
                 </div>
