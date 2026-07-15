@@ -120,6 +120,11 @@ export type Coupon = {
   code: string;
   discount: number;
   active: boolean;
+  usageLimit?: number;
+  usedCount?: number;
+  customerPhone?: string | null;
+  lastUsedOrderNumber?: string | null;
+  lastUsedAt?: string | null;
   createdAt: string;
 };
 
@@ -148,7 +153,18 @@ function mapCampaign(c: any): Campaign {
   return { _id: c.id, name: c.name, type: c.type, status: c.status, target: c.target, message: c.message, sentCount: Number(c.sentCount), openRate: Number(c.openRate), clickRate: Number(c.clickRate), scheduledAt: c.scheduledAt ?? undefined, sentAt: c.sentAt ?? undefined, createdAt: d(c.createdAt) };
 }
 function mapCoupon(c: any): Coupon {
-  return { _id: c.id, code: c.code, discount: Number(c.discount), active: Boolean(c.active), createdAt: d(c.createdAt) };
+  return {
+    _id: c.id,
+    code: c.code,
+    discount: Number(c.discount),
+    active: Boolean(c.active),
+    usageLimit: Number(c.usageLimit || 0),
+    usedCount: Number(c.usedCount || 0),
+    customerPhone: c.customerPhone ?? null,
+    lastUsedOrderNumber: c.lastUsedOrderNumber ?? null,
+    lastUsedAt: c.lastUsedAt ? d(c.lastUsedAt) : null,
+    createdAt: d(c.createdAt),
+  };
 }
 
 // ========================
@@ -368,17 +384,35 @@ export async function saveSettings(data: Partial<StoreSettings>): Promise<StoreS
 // ========================
 // Coupons
 // ========================
+function normalizePhone(phone: string): string {
+  return phone.replace(/\s+/g, '').replace(/^\+/, '').replace(/^0/, '966');
+}
+
 export async function getCoupons(): Promise<Coupon[]> {
   const rows = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
   return rows.map(mapCoupon);
 }
-export async function getCouponByCode(code: string): Promise<Coupon | undefined> {
+export async function getCouponByCode(code: string, customerPhone?: string): Promise<Coupon | undefined> {
   const normalized = code.toUpperCase().trim();
   const c = await prisma.coupon.findUnique({ where: { code: normalized } });
-  return c ? mapCoupon(c) : undefined;
+  if (!c) return undefined;
+  if (!c.active) return undefined;
+  if (c.usageLimit > 0 && c.usedCount >= c.usageLimit) return undefined;
+  if (customerPhone && c.customerPhone && normalizePhone(c.customerPhone) !== normalizePhone(customerPhone)) return undefined;
+  return mapCoupon(c);
 }
 export async function addCoupon(data: Omit<Coupon, '_id' | 'createdAt'>): Promise<Coupon> {
-  const c = await prisma.coupon.create({ data: { id: `coup${Date.now()}`, code: data.code.toUpperCase().trim(), discount: data.discount, active: data.active !== false } });
+  const c = await prisma.coupon.create({
+    data: {
+      id: `coup${Date.now()}`,
+      code: data.code.toUpperCase().trim(),
+      discount: data.discount,
+      active: data.active !== false,
+      usageLimit: Number(data.usageLimit || 0),
+      usedCount: 0,
+      customerPhone: data.customerPhone || null,
+    },
+  });
   return mapCoupon(c);
 }
 export async function updateCoupon(id: string, data: Partial<Coupon>): Promise<Coupon | null> {
@@ -387,6 +421,21 @@ export async function updateCoupon(id: string, data: Partial<Coupon>): Promise<C
     const c = await prisma.coupon.update({ where: { id }, data: rest });
     return mapCoupon(c);
   } catch { return null; }
+}
+export async function markCouponUsed(code: string, orderNumber: string, customerPhone?: string): Promise<void> {
+  const normalized = code.toUpperCase().trim();
+  const coupon = await prisma.coupon.findUnique({ where: { code: normalized } });
+  if (!coupon || !coupon.active) return;
+  if (coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit) return;
+  if (customerPhone && coupon.customerPhone && normalizePhone(coupon.customerPhone) !== normalizePhone(customerPhone)) return;
+  await prisma.coupon.update({
+    where: { id: coupon.id },
+    data: {
+      usedCount: coupon.usedCount + 1,
+      lastUsedOrderNumber: orderNumber,
+      lastUsedAt: new Date(),
+    },
+  });
 }
 export async function deleteCoupon(id: string): Promise<boolean> {
   try { await prisma.coupon.delete({ where: { id } }); return true; } catch { return false; }

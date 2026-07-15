@@ -4,9 +4,10 @@ import { getCoupons, getCouponByCode, addCoupon, deleteCoupon, updateCoupon } fr
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code');
+  const phone = searchParams.get('phone');
 
   if (code) {
-    const coupon = await getCouponByCode(code);
+    const coupon = await getCouponByCode(code, phone || undefined);
     if (!coupon || !coupon.active) {
       return NextResponse.json({ error: 'الكود غير موجود أو غير مفعل' }, { status: 404 });
     }
@@ -19,19 +20,24 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { code, discount } = body;
+  const { code, discount, usageLimit, customerPhone, active } = body;
 
   if (!code || !discount) {
     return NextResponse.json({ error: 'الكود والخصم مطلوبان' }, { status: 400 });
   }
 
-  // التحقق من عدم تكرار الكود
   const existing = (await getCoupons()).find(c => c.code === code.toUpperCase().trim());
   if (existing) {
     return NextResponse.json({ error: 'هذا الكود موجود مسبقاً' }, { status: 409 });
   }
 
-  const coupon = await addCoupon({ code, discount: Number(discount), active: true });
+  const coupon = await addCoupon({
+    code,
+    discount: Number(discount),
+    active: active !== false,
+    usageLimit: Number(usageLimit || 0),
+    customerPhone: customerPhone || null,
+  } as any);
   return NextResponse.json(coupon, { status: 201 });
 }
 

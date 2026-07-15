@@ -8,15 +8,23 @@ import CategoriesList from "./categories/CategoriesList";
 import FeaturedProducts from "./products/FeaturedProducts";
 import BlogIdeas from "./blog/BlogIdeas";
 
+type HomeCoupon = { _id: string; code: string; discount: number; active: boolean; usageLimit?: number; usedCount?: number; customerPhone?: string | null };
+
 export default function HomePage() {
   const [user, setUser] = useState<{ name?: string; role?: string; email?: string } | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [homeCoupons, setHomeCoupons] = useState<HomeCoupon[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem("jenanflo_user");
     if (stored) {
       try { setUser(JSON.parse(stored)); } catch {}
     }
+
+    fetch('/api/coupons')
+      .then(r => r.json())
+      .then((data: HomeCoupon[]) => setHomeCoupons((data || []).filter(c => c.active).slice(0, 3)))
+      .catch(() => setHomeCoupons([]));
   }, []);
 
   const handleLogout = () => {
@@ -135,6 +143,28 @@ export default function HomePage() {
         </p>
         <a href="#flowers" className="inline-block px-8 py-3 rounded-full text-lg font-semibold shadow transition cta-button">اكتشف السحر</a>
       </section>
+
+      {homeCoupons.length > 0 && (
+        <section className="w-full max-w-6xl mt-8">
+          <div className="rounded-2xl border border-[#C9A96E]/30 bg-gradient-to-r from-[#C9A96E]/15 to-[#4A9BA0]/10 p-5 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-[#C9A96E]">أحدث العروض</h2>
+              <span className="text-sm text-[#9AACAC]">خصومات مفعلة الآن</span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {homeCoupons.map(coupon => (
+                <div key={coupon._id} className="rounded-xl border border-white/10 bg-black/15 p-4">
+                  <div className="text-xl font-bold text-[#D4AF37]">{coupon.code}</div>
+                  <div className="text-sm text-[#9AACAC] mt-1">خصم {coupon.discount}%</div>
+                  <div className="text-xs text-[#4A9BA0] mt-2">
+                    {coupon.usageLimit && coupon.usageLimit > 0 ? `متبقي ${coupon.usageLimit - (coupon.usedCount || 0)} استخدام` : 'استخدام غير محدود'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
       {/* المنتجات المميزة */}
       <FeaturedProducts />
       {/* الأقسام الرئيسية */}

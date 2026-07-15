@@ -150,7 +150,7 @@ function CheckoutContent() {
     }
 
     try {
-      const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}`);
+      const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}&phone=${encodeURIComponent(customerPhone)}`);
       const data = await res.json();
 
       if (res.ok && data?.active) {

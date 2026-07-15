@@ -122,9 +122,14 @@ model Settings {
 }
 
 model Coupon {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  discount  Float
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id                  String    @id @default(cuid())
+  code                String    @unique
+  discount            Float
+  active              Boolean   @default(true)
+  usageLimit          Int       @default(0)
+  usedCount           Int       @default(0)
+  customerPhone       String?
+  lastUsedOrderNumber String?
+  lastUsedAt          DateTime?
+  createdAt           DateTime  @default(now())
 }

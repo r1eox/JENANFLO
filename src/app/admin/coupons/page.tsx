@@ -7,6 +7,9 @@ type Coupon = {
   code: string;
   discount: number;
   active: boolean;
+  usageLimit?: number;
+  usedCount?: number;
+  customerPhone?: string | null;
   createdAt: string;
 };
 
@@ -15,6 +18,8 @@ export default function AdminCouponsPage() {
   const [loading, setLoading] = useState(true);
   const [newCode, setNewCode] = useState("");
   const [newDiscount, setNewDiscount] = useState("");
+  const [newUsageLimit, setNewUsageLimit] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -38,12 +43,12 @@ export default function AdminCouponsPage() {
     const res = await fetch('/api/coupons', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: newCode, discount: disc }),
+      body: JSON.stringify({ code: newCode, discount: disc, usageLimit: Number(newUsageLimit || 0), customerPhone: newCustomerPhone || null }),
     });
     const data = await res.json();
     if (res.ok) {
       setSuccess("تم إضافة الكود ✓");
-      setNewCode(""); setNewDiscount("");
+      setNewCode(""); setNewDiscount(""); setNewUsageLimit(""); setNewCustomerPhone("");
       load();
     } else {
       setError(data.error || "حدث خطأ");
@@ -77,28 +82,47 @@ export default function AdminCouponsPage() {
         {/* إضافة كود جديد */}
         <div className="rounded-2xl p-6 mb-8" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,169,110,0.2)" }}>
           <h2 className="text-lg font-bold mb-4" style={{ color: "#D4AF37" }}>إضافة كود جديد</h2>
-          <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col md:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="الكود (مثال: SAVE20)"
+                value={newCode}
+                onChange={e => setNewCode(e.target.value.toUpperCase())}
+                className="flex-1 px-4 py-3 rounded-xl outline-none text-right"
+                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,169,110,0.3)", color: "#fff" }}
+              />
+              <input
+                type="number"
+                placeholder="نسبة الخصم %"
+                value={newDiscount}
+                onChange={e => setNewDiscount(e.target.value)}
+                min={1} max={100}
+                className="w-40 px-4 py-3 rounded-xl outline-none text-center"
+                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,169,110,0.3)", color: "#fff" }}
+              />
+              <input
+                type="number"
+                placeholder="حد الاستخدام"
+                value={newUsageLimit}
+                onChange={e => setNewUsageLimit(e.target.value)}
+                min={0}
+                className="w-36 px-4 py-3 rounded-xl outline-none text-center"
+                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,169,110,0.3)", color: "#fff" }}
+              />
+            </div>
             <input
-              type="text"
-              placeholder="الكود (مثال: SAVE20)"
-              value={newCode}
-              onChange={e => setNewCode(e.target.value.toUpperCase())}
-              className="flex-1 px-4 py-3 rounded-xl outline-none text-right"
-              style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,169,110,0.3)", color: "#fff" }}
-            />
-            <input
-              type="number"
-              placeholder="نسبة الخصم %"
-              value={newDiscount}
-              onChange={e => setNewDiscount(e.target.value)}
-              min={1} max={100}
-              className="w-40 px-4 py-3 rounded-xl outline-none text-center"
+              type="tel"
+              placeholder="رقم العميل (اختياري) 05xxxxxxxx"
+              value={newCustomerPhone}
+              onChange={e => setNewCustomerPhone(e.target.value)}
+              className="px-4 py-3 rounded-xl outline-none text-right"
               style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(201,169,110,0.3)", color: "#fff" }}
             />
             <button
               onClick={addCoupon}
               disabled={saving}
-              className="px-6 py-3 rounded-xl font-bold"
+              className="px-6 py-3 rounded-xl font-bold self-start"
               style={{ background: "linear-gradient(135deg,#C9A96E,#D4AF37)", color: "#1E2A2A" }}
             >
               {saving ? "..." : "إضافة"}
@@ -120,6 +144,10 @@ export default function AdminCouponsPage() {
                 <div className="flex items-center gap-4">
                   <span className="font-bold text-lg tracking-widest" style={{ color: coupon.active ? "#D4AF37" : "#666" }}>{coupon.code}</span>
                   <span className="text-sm px-3 py-1 rounded-full font-bold" style={{ background: "rgba(74,155,160,0.15)", color: "#4A9BA0" }}>خصم {coupon.discount}%</span>
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ background: "rgba(201,169,110,0.15)", color: "#C9A96E" }}>
+                    الاستخدام: {coupon.usedCount || 0}/{coupon.usageLimit && coupon.usageLimit > 0 ? coupon.usageLimit : '∞'}
+                  </span>
+                  {coupon.customerPhone && <span className="text-xs px-2 py-1 rounded-full" style={{ background: "rgba(74,155,160,0.15)", color: "#4A9BA0" }}>{coupon.customerPhone}</span>}
                   <span className="text-xs px-2 py-1 rounded-full" style={{ background: coupon.active ? "rgba(74,155,160,0.2)" : "rgba(255,100,100,0.15)", color: coupon.active ? "#4A9BA0" : "#ff6b6b" }}>
                     {coupon.active ? "مفعّل" : "معطّل"}
                   </span>

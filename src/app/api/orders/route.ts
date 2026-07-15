@@ -5,7 +5,8 @@ import {
   updateOrder,
   getCustomerByPhone,
   addCustomer,
-  updateCustomer
+  updateCustomer,
+  markCouponUsed
 } from "@/lib/localDb";
 import { NextResponse } from "next/server";
 
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
 
     // إضافة أو تحديث بيانات العميل تلقائياً
     if (data.customer?.phone) {
-    const existing = await getCustomerByPhone(data.customer.phone);
+      const existing = await getCustomerByPhone(data.customer.phone);
       if (existing) {
         await updateCustomer(existing._id, {
           totalOrders: (existing.totalOrders || 0) + 1,
@@ -91,6 +92,10 @@ export async function POST(req: Request) {
           marketing: { allowWhatsApp: true, allowEmail: true },
         });
       }
+    }
+
+    if (data.discountCode) {
+      await markCouponUsed(data.discountCode, order.orderNumber, data.customer?.phone);
     }
     
     return NextResponse.json({
