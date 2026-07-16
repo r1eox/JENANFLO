@@ -1,10 +1,9 @@
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 model Product {
@@ -36,7 +35,7 @@ model Order {
   orderNumber    String   @unique
   customer       Json
   items          Json
-  extras         Json     @default("[]")
+  extras         Json
   extrasTotal    Float    @default(0)
   discountCode   String?
   discountAmount Float    @default(0)
@@ -63,10 +62,10 @@ model Customer {
   totalOrders   Int      @default(0)
   totalSpent    Float    @default(0)
   lastOrderDate String?
-  tags          String[] @default([])
+  tags          Json
   status        String   @default("نشط")
-  marketing     Json     @default("{\"allowWhatsApp\":true,\"allowEmail\":true}")
-  specialDates  Json     @default("[]")
+  marketing     Json
+  specialDates  Json
   createdAt     DateTime @default(now())
 }
 
