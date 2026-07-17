@@ -1,12 +1,13 @@
-import { 
-  getOrders, 
-  getOrderByNumber, 
-  addOrder, 
+import {
+  getOrders,
+  getOrderByNumber,
+  addOrder,
   updateOrder,
   getCustomerByPhone,
   addCustomer,
   updateCustomer,
-  markCouponUsed
+  validateCoupon,
+  markCouponUsed,
 } from "@/lib/localDb";
 import { NextResponse } from "next/server";
 
@@ -15,7 +16,6 @@ export async function GET(req: Request) {
   const orderNumber = searchParams.get('orderNumber');
   const status = searchParams.get('status');
   
-  // البحث برقم الطلب
   if (orderNumber) {
     const order = await getOrderByNumber(orderNumber);
     return NextResponse.json(order || null);
@@ -23,7 +23,6 @@ export async function GET(req: Request) {
 
   let orders = await getOrders();
 
-  // فلتر بالجوال (للعميل المسجل)
   const phone = searchParams.get('phone');
   if (phone) {
     const normalized = phone.replace(/^\+/, '').replace(/^0/, '966');
@@ -39,16 +38,22 @@ export async function GET(req: Request) {
     orders = orders.filter(o => o.status === status);
   }
   
-  // ترتيب من الأحدث للأقدم
   orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  
   return NextResponse.json(orders);
 }
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    
+    const customerPhone = data.customer?.phone;
+
+    if (data.discountCode) {
+      const validate = await validateCoupon(data.discountCode, customerPhone);
+      if (!validate.valid) {
+        return NextResponse.json({ error: validate.reason || 'كود الخصم غير صالح' }, { status: 400 });
+      }
+    }
+
     const order = await addOrder({
       customer: data.customer,
       items: data.items,
@@ -66,10 +71,10 @@ export async function POST(req: Request) {
       giftMessage: data.giftMessage,
       deliveryDate: data.deliveryDate,
       deliveryTime: data.deliveryTime,
-      notes: data.notes
+      notes: data.notes,
+      deliveryAddress: data.deliveryAddress || data.customer?.address || null,
     });
 
-    // إضافة أو تحديث بيانات العميل تلقائياً
     if (data.customer?.phone) {
       const existing = await getCustomerByPhone(data.customer.phone);
       if (existing) {
@@ -82,8 +87,8 @@ export async function POST(req: Request) {
         await addCustomer({
           name: data.customer.name || 'عميل',
           phone: data.customer.phone,
-          email: data.customer.email || '',
-          address: data.customer.address || data.deliveryAddress || '',
+          email: data.customer.email || null,
+          address: data.customer.address || data.deliveryAddress || null,
           totalOrders: 1,
           totalSpent: data.total || 0,
           lastOrderDate: new Date().toISOString(),
@@ -95,14 +100,14 @@ export async function POST(req: Request) {
     }
 
     if (data.discountCode) {
-      await markCouponUsed(data.discountCode, order.orderNumber, data.customer?.phone);
+      await markCouponUsed(data.discountCode, order.orderNumber, customerPhone);
     }
     
     return NextResponse.json({
       success: true,
       orderNumber: order.orderNumber,
       message: 'تم استلام طلبك بنجاح! سنتواصل معك قريباً',
-      order
+      order,
     });
   } catch (error) {
     console.error("Error creating order:", error);

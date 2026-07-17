@@ -1,74 +1,63 @@
 
-# متجر جنان فلو Jenan Flo
+# JenanFlo
 
-موقع إلكتروني عصري لبيع الورد والهدايا (رجالي/نسائي) مع قابلية التوسع وإضافة أقسام جديدة بسهولة.
+تطبيق متجر رقمي محلي مبني باستخدام Next.js و SQLite عبر Prisma.
 
-## الميزات الرئيسية
-- صفحة رئيسية جذابة مع هوية بصرية مميزة
-- أقسام: الورد، الهدايا، رجالي، نسائي
-- منتجات مميزة وعروض
-- مدونة أفكار الهدايا والمناسبات
-- قابلية التوسع لإضافة أقسام أو منتجات جديدة بسهولة
+## ما تم تحسينه
+- اعتماد قاعدة بيانات SQLite محلية عبر Prisma
+- تخزين وإدارة المنتجات، الأقسام، العملاء، الطلبات، والكوبونات
+- نظام كوبونات مع تحقق من الصلاحية وحدود الاستخدام
+- تسجيل مستخدمين وحماية كلمة المرور عبر `bcryptjs`
+- تعديل سجلات المستخدمين والطلبات ضمن API آمن
+- واجهات لوحة التحكم لإدارة المنتجات والكوبونات
 
-## بدء التشغيل
+## التشغيل المحلي
 
-لتشغيل الموقع محلياً:
+1. ثبت الحزم:
+
+```bash
+npm install
+```
+
+2. شغّل الخادم في وضع التطوير:
 
 ```bash
 npm run dev
 ```
 
-ثم افتح [http://localhost:3000](http://localhost:3000)
+3. افتح المتصفح على:
 
-## بنية المشروع
-- `src/app/page.tsx`: الصفحة الرئيسية
-- `src/app/categories/`: بيانات وعرض الأقسام
-- `src/app/products/`: بيانات وعرض المنتجات
-- `src/app/blog/`: أفكار الهدايا والمناسبات
+```bash
+http://localhost:3000
+```
 
-## أفكار مستقبلية
-- إضافة سلة مشتريات ودفع إلكتروني
-- تخصيص الهدايا حسب المناسبة
-- نظام حسابات العملاء وتتبع الطلبات
+## هيكل المشروع
+- `src/app/page.tsx` - الصفحة الرئيسية
+- `src/app/checkout/page.tsx` - صفحة الدفع
+- `src/app/admin/` - لوحة الإدارة
+- `src/app/api/` - نقاط نهاية API
+- `src/lib/localDb.ts` - منطق العمل مع Prisma
+- `prisma/schema.prisma` - مخطط قاعدة البيانات
+
+## إعدادات البيئة
+- `DATABASE_URL` (افتراضيًا `file:./dev.db`)
+- `ADMIN_EMAIL` (افتراضيًا `admin@jenanflo.com`)
+- `ADMIN_PASSWORD` (افتراضيًا `admin123`)
+- `ADMIN_NAME` (افتراضيًا `مدير المتجر`)
+
+## ملاحظات مهمة
+- يتم حفظ كلمات المرور مشفرة في قاعدة البيانات
+- يتم تجاهل قاعدة البيانات المحلية في `.gitignore`
+- لا يلزم Supabase أو MongoDB بعد الآن
+- تحديثات وإصلاحات المشاريع تتم عبر `npm run build`
+
+## بناء وإنتاج
+
+```bash
+npm run build
+npm run start
+```
 
 ---
-تم بناء الموقع باستخدام [Next.js](https://nextjs.org) و [Tailwind CSS](https://tailwindcss.com)
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/route.ts`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## API Routes
-
-This directory contains example API routes for the headless API app.
-
-For more details, see [route.js file convention](https://nextjs.org/docs/app/api-reference/file-conventions/route).
+تم بناء المشروع باستخدام Next.js و Prisma و SQLite.

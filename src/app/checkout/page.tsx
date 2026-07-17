@@ -21,14 +21,21 @@ interface Product {
   image: string;
 }
 
-// الإضافات المتاحة
-const availableExtras = [
-  { id: 'card', name: 'بطاقة معايدة فاخرة', price: 15, emoji: '💌' },
-  { id: 'chocolate', name: 'شوكولاتة فاخرة', price: 45, emoji: '🍫' },
-  { id: 'balloon', name: 'بالونات هيليوم', price: 35, emoji: '🎈' },
-  { id: 'wrap', name: 'تغليف فاخر إضافي', price: 25, emoji: '🎁' },
-  { id: 'teddy', name: 'دبدوب قطيفة', price: 55, emoji: '🧸' },
-  { id: 'perfume', name: 'عطر صغير', price: 75, emoji: '🌸' },
+type GiftExtra = {
+  _id: string;
+  name: string;
+  price: number;
+  emoji: string;
+  active: boolean;
+};
+
+const defaultExtras: GiftExtra[] = [
+  { _id: 'extra_card', name: 'بطاقة معايدة فاخرة', price: 15, emoji: '💌', active: true },
+  { _id: 'extra_chocolate', name: 'شوكولاتة فاخرة', price: 45, emoji: '🍫', active: true },
+  { _id: 'extra_balloon', name: 'بالونات هيليوم', price: 35, emoji: '🎈', active: true },
+  { _id: 'extra_wrap', name: 'تغليف فاخر إضافي', price: 25, emoji: '🎁', active: true },
+  { _id: 'extra_teddy', name: 'دبدوب قطيفة', price: 55, emoji: '🧸', active: true },
+  { _id: 'extra_perfume', name: 'عطر صغير', price: 75, emoji: '🌸', active: true },
 ];
 
 function CheckoutContent() {
@@ -54,6 +61,7 @@ function CheckoutContent() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [isSecretGift, setIsSecretGift] = useState(false);
   const [secretMessage, setSecretMessage] = useState("");
+  const [availableExtras, setAvailableExtras] = useState<GiftExtra[]>(defaultExtras);
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [showMap, setShowMap] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
@@ -116,6 +124,17 @@ function CheckoutContent() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch('/api/extras')
+      .then(r => r.json())
+      .then((list: GiftExtra[]) => {
+        if (Array.isArray(list)) {
+          setAvailableExtras(list.filter(e => e.active !== false));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const detectLocation = () => {
     setLocLoading(true);
     setLocError("");
@@ -158,11 +177,12 @@ function CheckoutContent() {
         setCouponApplied(true);
         setCouponError("");
       } else {
-        setCouponError("كود الخصم غير صحيح أو غير مفعل");
+        setCouponError(data?.error || "كود الخصم غير صحيح أو غير مفعل");
         setCouponApplied(false);
         setCouponDiscount(0);
       }
-    } catch {
+    } catch (err) {
+      console.error('Coupon validation error:', err);
       setCouponError("تعذر التحقق من كود الخصم");
       setCouponApplied(false);
       setCouponDiscount(0);
@@ -226,7 +246,7 @@ function CheckoutContent() {
 
   // حساب الإضافات
   const extrasTotal = selectedExtras.reduce((sum, extraId) => {
-    const extra = availableExtras.find(e => e.id === extraId);
+    const extra = availableExtras.find(e => e._id === extraId);
     return sum + (extra?.price || 0);
   }, 0);
 
@@ -269,11 +289,8 @@ function CheckoutContent() {
         customer: {
           name: customerName,
           phone: customerPhone,
+          address: deliveryAddress,
         },
-        recipient: deliveryToOther ? {
-          name: recipientName,
-          phone: recipientPhone,
-        } : null,
         items: cartItems.map(item => ({
           productId: item._id,
           name: item.name,
@@ -281,20 +298,20 @@ function CheckoutContent() {
           quantity: item.quantity,
           giftMessage: item.giftMessage
         })),
-        extras: selectedExtras.map(id => availableExtras.find(e => e.id === id)),
-        deliveryAddress,
-        deliveryLocation: selectedLocation,
-        deliveryNotes,
-        scheduledDate,
-        scheduledTime,
-        isSecretGift,
-        secretMessage: isSecretGift ? secretMessage : null,
-        paymentMethod,
-        subtotal: totalPrice,
+        extras: selectedExtras.map(id => availableExtras.find(e => e._id === id)).filter(Boolean),
         extrasTotal,
         deliveryFee,
         discountCode: couponApplied ? couponCode.toUpperCase() : null,
         discountAmount,
+        subtotal: totalPrice,
+        tax: 0,
+        paymentMethod,
+        paymentStatus: 'معلق',
+        giftMessage: isSecretGift ? secretMessage : null,
+        deliveryDate: scheduledDate,
+        deliveryTime: scheduledTime,
+        notes: deliveryNotes,
+        deliveryAddress: deliveryAddress,
         total: finalTotal,
         status: 'جديد'
       };
@@ -524,17 +541,17 @@ function CheckoutContent() {
               <div className="grid grid-cols-2 gap-3">
                 {availableExtras.map((extra) => (
                   <label
-                    key={extra.id}
-                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-300 ${selectedExtras.includes(extra.id) ? 'scale-105' : 'hover:scale-102'}`}
+                    key={extra._id}
+                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-300 ${selectedExtras.includes(extra._id) ? 'scale-105' : 'hover:scale-102'}`}
                     style={{ 
-                      background: selectedExtras.includes(extra.id) ? "rgba(74, 155, 160, 0.3)" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${selectedExtras.includes(extra.id) ? "#4A9BA0" : "rgba(201, 169, 110, 0.2)"}` 
+                      background: selectedExtras.includes(extra._id) ? "rgba(74, 155, 160, 0.3)" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${selectedExtras.includes(extra._id) ? "#4A9BA0" : "rgba(201, 169, 110, 0.2)"}` 
                     }}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedExtras.includes(extra.id)}
-                      onChange={() => toggleExtra(extra.id)}
+                      checked={selectedExtras.includes(extra._id)}
+                      onChange={() => toggleExtra(extra._id)}
                       className="w-4 h-4 accent-teal-500"
                     />
                     <div className="flex-1">
@@ -811,7 +828,7 @@ function CheckoutContent() {
                 <div className="mb-4 pb-4" style={{ borderBottom: "1px solid rgba(201, 169, 110, 0.2)" }}>
                   <h3 className="text-sm font-bold mb-2" style={{ color: "#C9A96E" }}>✨ الإضافات</h3>
                   {selectedExtras.map(extraId => {
-                    const extra = availableExtras.find(e => e.id === extraId);
+                    const extra = availableExtras.find(e => e._id === extraId);
                     return extra && (
                       <div key={extraId} className="flex justify-between text-sm py-1">
                         <span style={{ color: "#9AACAC" }}>{extra.emoji} {extra.name}</span>

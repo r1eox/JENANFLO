@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCoupons, getCouponByCode, addCoupon, deleteCoupon, updateCoupon } from '@/lib/localDb';
+import { getCoupons, validateCoupon, addCoupon, deleteCoupon, updateCoupon } from '@/lib/localDb';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -7,11 +7,11 @@ export async function GET(req: NextRequest) {
   const phone = searchParams.get('phone');
 
   if (code) {
-    const coupon = await getCouponByCode(code, phone || undefined);
-    if (!coupon || !coupon.active) {
-      return NextResponse.json({ error: 'الكود غير موجود أو غير مفعل' }, { status: 404 });
+    const result = await validateCoupon(code, phone || undefined);
+    if (!result.valid) {
+      return NextResponse.json({ error: result.reason || 'الكود غير صالح' }, { status: 404 });
     }
-    return NextResponse.json(coupon);
+    return NextResponse.json(result.coupon);
   }
 
   const coupons = await getCoupons();
@@ -26,18 +26,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'الكود والخصم مطلوبان' }, { status: 400 });
   }
 
-  const existing = (await getCoupons()).find(c => c.code === code.toUpperCase().trim());
+  const normalizedCode = String(code).toUpperCase().trim();
+  const existing = (await getCoupons()).find(c => c.code === normalizedCode);
   if (existing) {
     return NextResponse.json({ error: 'هذا الكود موجود مسبقاً' }, { status: 409 });
   }
 
   const coupon = await addCoupon({
-    code,
+    code: normalizedCode,
     discount: Number(discount),
     active: active !== false,
     usageLimit: Number(usageLimit || 0),
     customerPhone: customerPhone || null,
-  } as any);
+  });
   return NextResponse.json(coupon, { status: 201 });
 }
 
@@ -55,6 +56,10 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const { id, ...data } = body;
   if (!id) return NextResponse.json({ error: 'id مطلوب' }, { status: 400 });
+
+  if (typeof data.code === 'string') {
+    data.code = data.code.toUpperCase().trim();
+  }
 
   const updated = await updateCoupon(id, data);
   if (!updated) return NextResponse.json({ error: 'الكود غير موجود' }, { status: 404 });

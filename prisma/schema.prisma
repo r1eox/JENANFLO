@@ -50,6 +50,7 @@ model Order {
   deliveryDate   String?
   deliveryTime   String?
   notes          String?
+  deliveryAddress String?
   createdAt      DateTime @default(now())
 }
 
@@ -131,4 +132,14 @@ model Coupon {
   lastUsedOrderNumber String?
   lastUsedAt          DateTime?
   createdAt           DateTime  @default(now())
+}
+
+model GiftExtra {
+  id        String   @id
+  name      String
+  price     Float
+  emoji     String   @default("🎁")
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
 }

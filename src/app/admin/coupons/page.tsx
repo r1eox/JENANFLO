@@ -23,6 +23,7 @@ export default function AdminCouponsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -40,15 +41,23 @@ export default function AdminCouponsPage() {
     if (disc < 1 || disc > 100) return setError("نسبة الخصم يجب أن تكون بين 1 و 100");
 
     setSaving(true);
+    const payload = {
+      code: newCode.toUpperCase().trim(),
+      discount: disc,
+      usageLimit: Number(newUsageLimit || 0),
+      customerPhone: newCustomerPhone || null,
+    };
+
     const res = await fetch('/api/coupons', {
-      method: 'POST',
+      method: editingCoupon ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: newCode, discount: disc, usageLimit: Number(newUsageLimit || 0), customerPhone: newCustomerPhone || null }),
+      body: JSON.stringify(editingCoupon ? { id: editingCoupon._id, ...payload } : payload),
     });
     const data = await res.json();
     if (res.ok) {
-      setSuccess("تم إضافة الكود ✓");
+      setSuccess(editingCoupon ? "تم تحديث الكود ✓" : "تم إضافة الكود ✓");
       setNewCode(""); setNewDiscount(""); setNewUsageLimit(""); setNewCustomerPhone("");
+      setEditingCoupon(null);
       load();
     } else {
       setError(data.error || "حدث خطأ");
@@ -69,6 +78,15 @@ export default function AdminCouponsPage() {
       body: JSON.stringify({ id: coupon._id, active: !coupon.active }),
     });
     load();
+  };
+
+  const beginEdit = (coupon: Coupon) => {
+    setEditingCoupon(coupon);
+    setNewCode(coupon.code);
+    setNewDiscount(String(coupon.discount));
+    setNewUsageLimit(String(coupon.usageLimit || 0));
+    setNewCustomerPhone(coupon.customerPhone || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -125,7 +143,7 @@ export default function AdminCouponsPage() {
               className="px-6 py-3 rounded-xl font-bold self-start"
               style={{ background: "linear-gradient(135deg,#C9A96E,#D4AF37)", color: "#1E2A2A" }}
             >
-              {saving ? "..." : "إضافة"}
+              {saving ? "..." : editingCoupon ? "تحديث" : "إضافة"}
             </button>
           </div>
           {error && <p className="mt-2 text-sm" style={{ color: "#ff6b6b" }}>{error}</p>}
@@ -153,6 +171,9 @@ export default function AdminCouponsPage() {
                   </span>
                 </div>
                 <div className="flex gap-2">
+                  <button onClick={() => beginEdit(coupon)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.08)", color: "#9AACAC" }}>
+                    تعديل
+                  </button>
                   <button onClick={() => toggleActive(coupon)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.08)", color: "#9AACAC" }}>
                     {coupon.active ? "تعطيل" : "تفعيل"}
                   </button>

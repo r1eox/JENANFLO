@@ -46,6 +46,7 @@ export type Order = {
   deliveryDate?: string;
   deliveryTime?: string;
   notes?: string;
+  deliveryAddress?: string;
   createdAt: string;
 };
 
@@ -128,6 +129,16 @@ export type Coupon = {
   createdAt: string;
 };
 
+export type GiftExtra = {
+  _id: string;
+  name: string;
+  price: number;
+  emoji: string;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+};
+
 // ========================
 // Mappers
 // ========================
@@ -141,7 +152,7 @@ function mapCategory(c: any): Category {
   return { _id: c.id, name: c.name, nameAr: c.nameAr, description: c.description || '', image: c.image || '', active: Boolean(c.active) };
 }
 function mapOrder(o: any): Order {
-  return { _id: o.id, orderNumber: o.orderNumber, customer: o.customer as any, items: o.items as any, extras: (o.extras as any) || [], extrasTotal: Number(o.extrasTotal || 0), discountCode: o.discountCode, discountAmount: Number(o.discountAmount || 0), subtotal: Number(o.subtotal), tax: Number(o.tax || 0), deliveryFee: Number(o.deliveryFee || 0), total: Number(o.total), status: o.status, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus, giftMessage: o.giftMessage ?? undefined, deliveryDate: o.deliveryDate ?? undefined, deliveryTime: o.deliveryTime ?? undefined, notes: o.notes ?? undefined, createdAt: d(o.createdAt) };
+  return { _id: o.id, orderNumber: o.orderNumber, customer: o.customer as any, items: o.items as any, extras: (o.extras as any) || [], extrasTotal: Number(o.extrasTotal || 0), discountCode: o.discountCode, discountAmount: Number(o.discountAmount || 0), subtotal: Number(o.subtotal), tax: Number(o.tax || 0), deliveryFee: Number(o.deliveryFee || 0), total: Number(o.total), status: o.status, paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus, giftMessage: o.giftMessage ?? undefined, deliveryDate: o.deliveryDate ?? undefined, deliveryTime: o.deliveryTime ?? undefined, notes: o.notes ?? undefined, deliveryAddress: o.deliveryAddress ?? undefined, createdAt: d(o.createdAt) };
 }
 function mapCustomer(c: any): Customer {
   return { _id: c.id, name: c.name, phone: c.phone, email: c.email ?? undefined, address: c.address ?? undefined, totalOrders: Number(c.totalOrders), totalSpent: Number(c.totalSpent), lastOrderDate: c.lastOrderDate ?? undefined, tags: c.tags || [], status: c.status, marketing: (c.marketing as any) || { allowWhatsApp: true, allowEmail: true }, specialDates: (c.specialDates as any) || [], createdAt: d(c.createdAt) };
@@ -166,6 +177,17 @@ function mapCoupon(c: any): Coupon {
     createdAt: d(c.createdAt),
   };
 }
+function mapGiftExtra(e: any): GiftExtra {
+  return {
+    _id: e.id,
+    name: e.name,
+    price: Number(e.price),
+    emoji: e.emoji || '🎁',
+    active: Boolean(e.active),
+    sortOrder: Number(e.sortOrder || 0),
+    createdAt: d(e.createdAt),
+  };
+}
 
 // ========================
 // البيانات الأولية (Seed)
@@ -185,6 +207,15 @@ const seedCategories = [
   { id: 'men', name: 'men', nameAr: 'أناقتك', description: 'هدايا رجالية أنيقة وفاخرة', image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=400', active: true },
   { id: 'women', name: 'women', nameAr: 'أنوثتك', description: 'هدايا نسائية راقية ومميزة', image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=400', active: true },
   { id: 'handmade', name: 'handmade', nameAr: 'فن الإبداع', description: 'منتجات يدوية الصنع بلمسة فنية', image: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=400', active: true },
+];
+
+const defaultGiftExtras = [
+  { id: 'extra_card', name: 'بطاقة معايدة فاخرة', price: 15, emoji: '💌', active: true, sortOrder: 1 },
+  { id: 'extra_chocolate', name: 'شوكولاتة فاخرة', price: 45, emoji: '🍫', active: true, sortOrder: 2 },
+  { id: 'extra_balloon', name: 'بالونات هيليوم', price: 35, emoji: '🎈', active: true, sortOrder: 3 },
+  { id: 'extra_wrap', name: 'تغليف فاخر إضافي', price: 25, emoji: '🎁', active: true, sortOrder: 4 },
+  { id: 'extra_teddy', name: 'دبدوب قطيفة', price: 55, emoji: '🧸', active: true, sortOrder: 5 },
+  { id: 'extra_perfume', name: 'عطر صغير', price: 75, emoji: '🌸', active: true, sortOrder: 6 },
 ];
 
 // ========================
@@ -252,6 +283,76 @@ export async function deleteCategory(id: string): Promise<boolean> {
 }
 
 // ========================
+// Gift Extras
+// ========================
+export async function getGiftExtras(): Promise<GiftExtra[]> {
+  let rows = await prisma.giftExtra.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });
+  if (rows.length === 0) {
+    await prisma.giftExtra.createMany({ data: defaultGiftExtras });
+    rows = await prisma.giftExtra.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });
+  }
+  return rows.map(mapGiftExtra);
+}
+
+export async function addGiftExtra(data: { name: string; price: number; emoji?: string; active?: boolean; sortOrder?: number }): Promise<GiftExtra> {
+  const count = await prisma.giftExtra.count();
+  const created = await prisma.giftExtra.create({
+    data: {
+      id: `extra${Date.now()}`,
+      name: data.name,
+      price: Number(data.price),
+      emoji: data.emoji || '🎁',
+      active: data.active !== false,
+      sortOrder: data.sortOrder ?? count + 1,
+    },
+  });
+  return mapGiftExtra(created);
+}
+
+export async function updateGiftExtra(id: string, updates: Partial<GiftExtra>): Promise<GiftExtra | null> {
+  try {
+    const { _id, createdAt, ...data } = updates as any;
+    const updated = await prisma.giftExtra.update({ where: { id }, data });
+    return mapGiftExtra(updated);
+  } catch {
+    return null;
+  }
+}
+
+export async function reorderGiftExtras(orderedIds: string[]): Promise<boolean> {
+  try {
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) return false;
+
+    const existing = await prisma.giftExtra.findMany({ select: { id: true } });
+    const existingIds = new Set(existing.map((e) => e.id));
+
+    if (orderedIds.some((id) => !existingIds.has(id))) return false;
+
+    await prisma.$transaction(
+      orderedIds.map((id, index) =>
+        prisma.giftExtra.update({
+          where: { id },
+          data: { sortOrder: index + 1 },
+        })
+      )
+    );
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteGiftExtra(id: string): Promise<boolean> {
+  try {
+    await prisma.giftExtra.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ========================
 // Orders
 // ========================
 export async function getOrders(): Promise<Order[]> {
@@ -265,7 +366,7 @@ export async function getOrderByNumber(orderNumber: string): Promise<Order | und
 export async function addOrder(data: Omit<Order, '_id' | 'orderNumber' | 'createdAt'>): Promise<Order> {
   const count = await prisma.order.count();
   const orderNumber = `JF-${String(count + 1).padStart(6, '0')}`;
-  const o = await prisma.order.create({ data: { id: `order${Date.now()}`, orderNumber, customer: data.customer as any, items: data.items as any, extras: (data.extras || []) as any, extrasTotal: data.extrasTotal || 0, discountCode: data.discountCode || null, discountAmount: data.discountAmount || 0, subtotal: data.subtotal || 0, tax: data.tax || 0, deliveryFee: data.deliveryFee || 0, total: data.total, status: data.status || 'جديد', paymentMethod: data.paymentMethod || 'نقدي', paymentStatus: data.paymentStatus || 'معلق', giftMessage: data.giftMessage || null, deliveryDate: data.deliveryDate || null, deliveryTime: data.deliveryTime || null, notes: data.notes || null } });
+  const o = await prisma.order.create({ data: { id: `order${Date.now()}`, orderNumber, customer: data.customer as any, items: data.items as any, extras: (data.extras || []) as any, extrasTotal: data.extrasTotal || 0, discountCode: data.discountCode || null, discountAmount: data.discountAmount || 0, subtotal: data.subtotal || 0, tax: data.tax || 0, deliveryFee: data.deliveryFee || 0, total: data.total, status: data.status || 'جديد', paymentMethod: data.paymentMethod || 'نقدي', paymentStatus: data.paymentStatus || 'معلق', giftMessage: data.giftMessage || null, deliveryDate: data.deliveryDate || null, deliveryTime: data.deliveryTime || null, notes: data.notes || null, deliveryAddress: data.deliveryAddress || null } });
   return mapOrder(o);
 }
 export async function updateOrder(id: string, updates: Partial<Order>): Promise<Order | null> {
@@ -392,51 +493,86 @@ export async function getCoupons(): Promise<Coupon[]> {
   const rows = await prisma.coupon.findMany({ orderBy: { createdAt: 'desc' } });
   return rows.map(mapCoupon);
 }
-export async function getCouponByCode(code: string, customerPhone?: string): Promise<Coupon | undefined> {
+export type CouponValidationResult = {
+  valid: boolean;
+  reason?: string;
+  coupon?: Coupon;
+};
+
+export async function getCouponByCode(code: string): Promise<Coupon | undefined> {
   const normalized = code.toUpperCase().trim();
   const c = await prisma.coupon.findUnique({ where: { code: normalized } });
-  if (!c) return undefined;
-  if (!c.active) return undefined;
-  if (c.usageLimit > 0 && c.usedCount >= c.usageLimit) return undefined;
-  if (customerPhone && c.customerPhone && normalizePhone(c.customerPhone) !== normalizePhone(customerPhone)) return undefined;
-  return mapCoupon(c);
+  return c ? mapCoupon(c) : undefined;
 }
+
+export async function validateCoupon(code: string, customerPhone?: string): Promise<CouponValidationResult> {
+  if (!code || !code.trim()) {
+    return { valid: false, reason: 'يرجى إدخال كود الخصم' };
+  }
+
+  const coupon = await getCouponByCode(code);
+  if (!coupon) return { valid: false, reason: 'الكود غير موجود' };
+  if (!coupon.active) return { valid: false, reason: 'هذا الكود غير مفعل حالياً' };
+  if (coupon.usageLimit && (coupon.usedCount ?? 0) >= coupon.usageLimit) {
+    return { valid: false, reason: 'هذا الكود وصل إلى حد الاستخدام المسموح' };
+  }
+  if (customerPhone && coupon.customerPhone && normalizePhone(coupon.customerPhone) !== normalizePhone(customerPhone)) {
+    return { valid: false, reason: 'هذا الكود مخصّص لعميل آخر' };
+  }
+  return { valid: true, coupon };
+}
+
 export async function addCoupon(data: Omit<Coupon, '_id' | 'createdAt'>): Promise<Coupon> {
+  const normalizedCode = data.code.toUpperCase().trim();
   const c = await prisma.coupon.create({
     data: {
       id: `coup${Date.now()}`,
-      code: data.code.toUpperCase().trim(),
-      discount: data.discount,
+      code: normalizedCode,
+      discount: Number(data.discount),
       active: data.active !== false,
-      usageLimit: Number(data.usageLimit || 0),
+      usageLimit: Math.max(0, Number(data.usageLimit || 0)),
       usedCount: 0,
       customerPhone: data.customerPhone || null,
     },
   });
   return mapCoupon(c);
 }
+
 export async function updateCoupon(id: string, data: Partial<Coupon>): Promise<Coupon | null> {
   try {
     const { _id, createdAt, ...rest } = data as any;
+    if (typeof rest.code === 'string') {
+      rest.code = rest.code.toUpperCase().trim();
+    }
+    if (rest.usageLimit !== undefined) {
+      rest.usageLimit = Math.max(0, Number(rest.usageLimit || 0));
+    }
     const c = await prisma.coupon.update({ where: { id }, data: rest });
     return mapCoupon(c);
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
-export async function markCouponUsed(code: string, orderNumber: string, customerPhone?: string): Promise<void> {
-  const normalized = code.toUpperCase().trim();
-  const coupon = await prisma.coupon.findUnique({ where: { code: normalized } });
-  if (!coupon || !coupon.active) return;
-  if (coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit) return;
-  if (customerPhone && coupon.customerPhone && normalizePhone(coupon.customerPhone) !== normalizePhone(customerPhone)) return;
-  await prisma.coupon.update({
-    where: { id: coupon.id },
+
+export async function markCouponUsed(code: string, orderNumber: string, customerPhone?: string): Promise<CouponValidationResult> {
+  const validation = await validateCoupon(code, customerPhone);
+  if (!validation.valid || !validation.coupon) {
+    return validation;
+  }
+
+  const coupon = validation.coupon;
+  const updated = await prisma.coupon.update({
+    where: { id: coupon._id },
     data: {
-      usedCount: coupon.usedCount + 1,
+      usedCount: (coupon.usedCount ?? 0) + 1,
       lastUsedOrderNumber: orderNumber,
       lastUsedAt: new Date(),
     },
   });
+
+  return { valid: true, coupon: mapCoupon(updated) };
 }
+
 export async function deleteCoupon(id: string): Promise<boolean> {
   try { await prisma.coupon.delete({ where: { id } }); return true; } catch { return false; }
 }

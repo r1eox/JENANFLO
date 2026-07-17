@@ -1,50 +1,41 @@
+import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { getUsers, getUserByEmail, addUser, updateUser } from "@/lib/localDb";
 
 export async function GET() {
   const users = await getUsers();
-  // إخفاء كلمات المرور
-  const safeUsers = users.map(u => ({ ...u, password: undefined }));
+  const safeUsers = users.map(u => ({ ...u, passwordHash: undefined }));
   return NextResponse.json(safeUsers);
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    
     if (!body.name || !body.email || !body.password) {
-      return NextResponse.json(
-        { error: "جميع الحقول مطلوبة" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "جميع الحقول مطلوبة" }, { status: 400 });
     }
-    
-    // التحقق من عدم وجود المستخدم
+
     const existing = await getUserByEmail(body.email);
     if (existing) {
-      return NextResponse.json(
-        { error: "البريد مستخدم مسبقاً" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "البريد الإلكتروني مستخدم مسبقاً" }, { status: 400 });
     }
-    
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
     const newUser = await addUser({
       name: body.name,
       email: body.email,
-      passwordHash: body.password, // في الإنتاج يجب تشفيرها
-      role: body.role || 'customer'
+      phone: body.phone || '',
+      passwordHash,
+      role: 'customer',
     });
-    
-    return NextResponse.json({ ...newUser, password: undefined }, { status: 201 });
+
+    return NextResponse.json({ ...newUser, passwordHash: undefined }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      { error: "حدث خطأ في إنشاء المستخدم" },
-      { status: 500 }
-    );
+    console.error("User create error:", error);
+    return NextResponse.json({ error: "حدث خطأ في إنشاء المستخدم" }, { status: 500 });
   }
 }
 
-// تحديث بيانات المستخدم (مثل الجوال)
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
@@ -56,7 +47,8 @@ export async function PATCH(req: Request) {
 
     const updated = await updateUser(user._id, { phone });
     return NextResponse.json({ success: true, phone: updated?.phone });
-  } catch {
+  } catch (error) {
+    console.error("User update error:", error);
     return NextResponse.json({ error: "حدث خطأ" }, { status: 500 });
   }
 }
