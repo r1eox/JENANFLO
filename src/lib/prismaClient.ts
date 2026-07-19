@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 const defaultDatabaseUrl = 'postgresql://postgres:Jnoa%401243%40%40@db.aksvhjtcukixjqibpcyn.supabase.co:5432/postgres';
@@ -7,7 +8,14 @@ const defaultDatabaseUrl = 'postgresql://postgres:Jnoa%401243%40%40@db.aksvhjtcu
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL ?? defaultDatabaseUrl;
 
-  const adapter = new PrismaPg(connectionString);
+  const pool = new Pool({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
+
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
