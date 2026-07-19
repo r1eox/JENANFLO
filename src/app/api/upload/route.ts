@@ -3,6 +3,19 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
 
+async function uploadAsDataUrl(file: File) {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const base64 = buffer.toString('base64');
+  const dataUrl = `data:${file.type};base64,${base64}`;
+
+  return NextResponse.json({
+    success: true,
+    url: dataUrl,
+    message: 'تم رفع الصورة بنجاح',
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -31,6 +44,10 @@ export async function POST(req: Request) {
         { error: "حجم الصورة يجب أن يكون أقل من 5 ميجابايت" },
         { status: 400 }
       );
+    }
+
+    if (process.env.VERCEL) {
+      return uploadAsDataUrl(file);
     }
 
     // إنشاء اسم فريد للملف
@@ -64,10 +81,18 @@ export async function POST(req: Request) {
     
   } catch (error) {
     console.error("Error uploading file:", error);
-    return NextResponse.json(
-      { error: "حدث خطأ في رفع الصورة" },
-      { status: 500 }
-    );
+
+    try {
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+      if (file) {
+        return uploadAsDataUrl(file);
+      }
+    } catch {
+      // ignore secondary parsing errors
+    }
+
+    return NextResponse.json({ error: "حدث خطأ في رفع الصورة" }, { status: 500 });
   }
 }
 
@@ -90,6 +115,13 @@ export async function DELETE(req: Request) {
         { error: "رابط الصورة غير صالح" },
         { status: 400 }
       );
+    }
+
+    if (imageUrl.startsWith("data:")) {
+      return NextResponse.json({
+        success: true,
+        message: "تم حذف الصورة بنجاح",
+      });
     }
 
     const filePath = path.join(process.cwd(), "public", "uploads", fileName);
